@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: budget-jar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: budget_jar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - budget-jar-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: budget-jar-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/budget_jar
+      JWT_SECRET: ${JWT_SECRET}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      PORT: 3001
+    depends_on:
+      - postgres
+    networks:
+      - budget-jar-network
+    command: sh -c "npx prisma migrate deploy && npm start"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: budget-jar-frontend
+    restart: unless-stopped
+    ports:
+      - "3002:80"
+    networks:
+      - budget-jar-network
+
+volumes:
+  postgres_data:
+
+networks:
+  budget-jar-network:
+    driver: bridge
