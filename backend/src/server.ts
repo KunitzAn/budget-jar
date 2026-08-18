@@ -11,7 +11,11 @@ const server = Fastify({
 })
 
 server.register(cors, { 
-  origin: true,
+  origin: [
+    'http://localhost:5173',
+    'https://jar.kunitcan.online',
+    'https://budget-jar.pages.dev'
+  ],
   credentials: true
 })
 

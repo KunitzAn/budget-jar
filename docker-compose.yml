@@ -14,31 +14,21 @@ services:
     networks:
       - budget-jar-network
 
-  backend:
+  app:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: budget-jar-backend
+    container_name: budget-jar-app
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/budget_jar
       JWT_SECRET: ${JWT_SECRET}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       PORT: 3001
+    ports:
+      - "3001:3001"
     depends_on:
       - postgres
-    networks:
-      - budget-jar-network
-    command: sh -c "npx prisma migrate deploy && npm start"
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: budget-jar-frontend
-    restart: unless-stopped
-    ports:
-      - "3002:80"
     networks:
       - budget-jar-network
 
