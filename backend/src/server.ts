@@ -16,6 +16,8 @@ server.register(cors, {
     'https://jar.kunitcan.online',
     'https://budget-jar.pages.dev'
   ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 })
 
