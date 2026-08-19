@@ -53,7 +53,7 @@ const stones = computed(() => {
   const minHeight = 350
   const fillHeight = minHeight - (fillRatio * (minHeight - maxHeight))
   
-  return Array.from({ length: stoneCount }, (_, i) => ({
+  return Array.from({ length: stoneCount }, () => ({
     cx: 60 + Math.random() * 80,
     cy: fillHeight + Math.random() * (350 - fillHeight),
     rx: 8 + Math.random() * 8,
