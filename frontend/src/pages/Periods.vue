@@ -30,13 +30,13 @@
               <span v-if="isActive(p)" class="badge-active">активный</span>
             </div>
             <div class="period-stats">
-              <span class="period-total">Бюджет: {{ formatCurrency(p.totalSum) }}</span>
+              <span class="period-total">Бюджет: {{ formatCurrency(Number(p.totalSum)) }}</span>
               <span class="period-spent">Потрачено: {{ formatCurrency(spent(p)) }}</span>
               <span
                 class="period-balance"
-                :class="(p.totalSum - spent(p)) >= 0 ? 'positive' : 'negative'"
+                :class="balance(p) >= 0 ? 'positive' : 'negative'"
               >
-                {{ (p.totalSum - spent(p)) >= 0 ? '+' : '' }}{{ formatCurrency(p.totalSum - spent(p)) }}
+                {{ balance(p) >= 0 ? '+' : '' }}{{ formatCurrency(balance(p)) }}
               </span>
             </div>
           </div>
@@ -78,7 +78,9 @@ const fetchPeriods = async () => {
   }
 }
 
-const spent = (p: Period) => p.expenses.reduce((sum, e) => sum + e.amount, 0)
+const spent = (p: Period) => p.expenses.reduce((sum, e) => sum + Number(e.amount), 0)
+
+const balance = (p: Period) => Number(p.totalSum) - spent(p)
 
 const isActive = (p: Period) => {
   const now = Date.now()

@@ -22,7 +22,7 @@
         </p>
       </div>
 
-      <StoneJar :current-balance="currentBalance" :max-possible="period.totalSum" />
+      <StoneJar :current-balance="currentBalance" :max-possible="Number(period.totalSum)" />
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -39,7 +39,7 @@
         </div>
         <div class="stat-card">
           <span class="stat-label">Бюджет периода</span>
-          <span class="stat-value small">{{ formatCurrency(period.totalSum) }}</span>
+          <span class="stat-value small">{{ formatCurrency(Number(period.totalSum)) }}</span>
         </div>
       </div>
 
@@ -50,7 +50,7 @@
         <div class="expenses-list">
           <div v-for="exp in sortedExpenses" :key="exp.id" class="expense-row">
             <span class="expense-date">{{ formatDate(exp.date) }}</span>
-            <span class="expense-amount">−{{ formatCurrency(exp.amount) }}</span>
+            <span class="expense-amount">−{{ formatCurrency(Number(exp.amount)) }}</span>
           </div>
         </div>
       </div>
@@ -81,10 +81,13 @@ const period = ref<Period | null>(null)
 const periodId = computed(() => parseInt(route.params.id as string))
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
+const MSK_OFFSET_MS = 3 * 60 * 60 * 1000 // МСК = UTC+3
 
-// нормализуем дату к «дню» в UTC — убирает сдвиг из-за времени и таймзоны
+// округляем момент до «дня» по московскому времени
+// (новый день наступает в 00:00 МСК, а не 00:00 UTC)
 const toUTCDay = (d: string | Date) => {
-  const dt = new Date(d)
+  const t = new Date(d).getTime() + MSK_OFFSET_MS
+  const dt = new Date(t)
   return Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())
 }
 
@@ -95,7 +98,7 @@ const totalDays = computed(() => {
 
 const dailyBudget = computed(() => {
   if (!period.value || totalDays.value <= 0) return 0
-  return period.value.totalSum / totalDays.value
+  return Number(period.value.totalSum) / totalDays.value
 })
 
 const daysPassed = computed(() => {
@@ -128,7 +131,7 @@ const earnedSoFar = computed(() => dailyBudget.value * daysPassed.value)
 
 const spentSoFar = computed(() => {
   if (!period.value) return 0
-  return period.value.expenses.reduce((sum, exp) => sum + exp.amount, 0)
+  return period.value.expenses.reduce((sum, exp) => sum + Number(exp.amount), 0)
 })
 
 const currentBalance = computed(() => earnedSoFar.value - spentSoFar.value)
