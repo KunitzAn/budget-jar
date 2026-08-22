@@ -90,15 +90,16 @@ const dustParticles = computed(() => {
   if (props.currentBalance <= 0) return []
 
   const fillRatio = Math.max(0, Math.min(props.currentBalance / props.totalSum, 1))
-  const particleCount = Math.floor(fillRatio * 260) + 20
+  const particleCount = Math.floor(fillRatio * 380) + 35
   const maxHeight = 58 // доверху
   const minHeight = 350 // почти пусто
+  const bottomY = 377 // самое дно банки
   const fillHeight = minHeight - (fillRatio * (minHeight - maxHeight))
 
   return Array.from({ length: particleCount }, (_, i) => ({
     id: i,
     cx: 44 + Math.random() * 112,
-    cy: fillHeight + Math.random() * (352 - fillHeight),
+    cy: fillHeight + Math.random() * (bottomY - fillHeight),
     r: 1.2 + Math.random() * 2.6,
     color: colors[Math.floor(Math.random() * colors.length)],
     star: Math.random() < 0.08,
