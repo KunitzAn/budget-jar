@@ -28,8 +28,8 @@ const errorMessage = ref('')
 const handleCreate = async (data: { startDate: string; endDate: string; totalSum: number }) => {
   errorMessage.value = ''
   try {
-    await createPeriod(data)
-    router.push('/')
+    const { data: created } = await createPeriod(data)
+    router.push(`/periods/${created.id}`)
   } catch (error: any) {
     if (error.response?.status === 409) {
       errorMessage.value = 'Период с такими датами уже существует. Выберите другие даты.'

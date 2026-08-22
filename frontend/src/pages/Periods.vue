@@ -120,6 +120,8 @@ const handleDelete = async (id: number) => {
     deletingId.value = id
     await deletePeriod(id)
     periods.value = periods.value.filter((p) => p.id !== id)
+    const { data } = await getStats()
+    stats.value = data
   } catch (err) {
     alert('Не удалось удалить период.')
   } finally {
