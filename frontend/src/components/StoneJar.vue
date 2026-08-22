@@ -39,18 +39,18 @@ import { computed } from 'vue'
 
 const props = defineProps<{
   currentBalance: number
-  maxPossible: number
+  totalSum: number
 }>()
 
 const colors = ['#E8C4A0', '#D4A574', '#C4612F', '#F2E3D6', '#E7D7C1', '#B8956A']
 
 const stones = computed(() => {
   if (props.currentBalance <= 0) return []
-  
-  const fillRatio = Math.min(props.currentBalance / props.maxPossible, 1)
-  const stoneCount = Math.floor(fillRatio * 50) + 10
-  const maxHeight = 330
-  const minHeight = 350
+
+  const fillRatio = Math.max(0, Math.min(props.currentBalance / props.totalSum, 1))
+  const stoneCount = Math.floor(fillRatio * 90) + 10
+  const maxHeight = 60 // банка заполнена доверху
+  const minHeight = 350 // почти пусто, чуть выше дна
   const fillHeight = minHeight - (fillRatio * (minHeight - maxHeight))
   
   return Array.from({ length: stoneCount }, () => ({

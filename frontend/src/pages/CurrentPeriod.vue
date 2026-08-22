@@ -21,7 +21,7 @@
         <p class="days-left">Осталось дней: {{ daysLeft }}</p>
       </div>
 
-      <StoneJar :current-balance="currentBalance" :max-possible="Number(period.totalSum)" />
+      <StoneJar :current-balance="currentBalance" :total-sum="Number(period.totalSum)" />
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -31,6 +31,10 @@
         <div class="stat-card">
           <span class="stat-label">Потрачено</span>
           <span class="stat-value negative">{{ formatCurrency(spentSoFar) }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Потрачено сегодня</span>
+          <span class="stat-value negative">{{ formatCurrency(spentToday) }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Дневная норма</span>
@@ -107,6 +111,14 @@ const earnedSoFar = computed(() => dailyBudget.value * daysPassed.value)
 const spentSoFar = computed(() => {
   if (!period.value) return 0
   return period.value.expenses.reduce((sum, exp) => sum + Number(exp.amount), 0)
+})
+
+const spentToday = computed(() => {
+  if (!period.value) return 0
+  const today = toUTCDay(new Date())
+  return period.value.expenses
+    .filter((exp) => toUTCDay(exp.date) === today)
+    .reduce((sum, exp) => sum + Number(exp.amount), 0)
 })
 
 const currentBalance = computed(() => earnedSoFar.value - spentSoFar.value)
