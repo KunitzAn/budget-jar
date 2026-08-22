@@ -2,7 +2,10 @@
   <div class="page">
     <header class="header">
       <h1>Budget <em>Jar</em></h1>
-      <button @click="goBack" class="btn-secondary">← Назад</button>
+      <div class="header-actions">
+        <button @click="goToNewPeriod" class="btn-primary">+ Новый период</button>
+        <button @click="goBack" class="btn-secondary">← Назад</button>
+      </div>
     </header>
 
     <div v-if="loading" class="loading">Загрузка...</div>
@@ -15,6 +18,25 @@
       <div class="page-title">
         <span class="pill">Все периоды</span>
         <h2>Список периодов</h2>
+      </div>
+
+      <div class="summary-cards">
+        <div class="summary-card">
+          <span class="card-label">Общий доход</span>
+          <span class="card-value positive">{{ formatCurrency(stats?.totalIncome || 0) }}</span>
+        </div>
+
+        <div class="summary-card">
+          <span class="card-label">Общие траты</span>
+          <span class="card-value negative">{{ formatCurrency(stats?.totalExpenses || 0) }}</span>
+        </div>
+
+        <div class="summary-card highlight">
+          <span class="card-label">Итоговый баланс</span>
+          <span class="card-value" :class="(stats?.balance || 0) >= 0 ? 'positive' : 'negative'">
+            {{ formatCurrency(stats?.balance || 0) }}
+          </span>
+        </div>
       </div>
 
       <div v-if="periods.length === 0" class="empty">
@@ -57,20 +79,23 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPeriods, deletePeriod } from '../api/periods'
-import type { Period } from '../types'
+import { getStats } from '../api/stats'
+import type { Period, Stats } from '../types'
 
 const router = useRouter()
 const loading = ref(true)
 const error = ref('')
 const periods = ref<Period[]>([])
+const stats = ref<Stats | null>(null)
 const deletingId = ref<number | null>(null)
 
 const fetchPeriods = async () => {
   try {
     loading.value = true
     error.value = ''
-    const { data } = await getPeriods()
-    periods.value = data
+    const [periodsRes, statsRes] = await Promise.all([getPeriods(), getStats()])
+    periods.value = periodsRes.data
+    stats.value = statsRes.data
   } catch (err) {
     error.value = 'Ошибка загрузки периодов'
   } finally {
@@ -151,6 +176,57 @@ onMounted(fetchPeriods)
 .header h1 em {
   color: #C4612F;
   font-style: italic;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.summary-card {
+  background: #FFFFFF;
+  border: 1px solid #E7E1D7;
+  border-radius: 20px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: transform 0.2s;
+}
+
+.summary-card:hover {
+  transform: translateY(-3px);
+}
+
+.summary-card.highlight {
+  border: 2px solid #C4612F;
+  background: #FBF9F5;
+}
+
+.card-label {
+  font-size: 0.875rem;
+  color: #5C635D;
+  font-weight: 500;
+}
+
+.card-value {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.card-value.positive {
+  color: #16a34a;
+}
+
+.card-value.negative {
+  color: #dc2626;
 }
 
 .content {

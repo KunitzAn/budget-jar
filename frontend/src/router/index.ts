@@ -30,12 +30,6 @@ const routes = [
     component: () => import('../pages/PeriodDetail.vue'),
     meta: { requiresAuth: true },
   },
-  {
-    path: '/stats',
-    name: 'Stats',
-    component: () => import('../pages/Stats.vue'),
-    meta: { requiresAuth: true },
-  },
 ]
 
 const router = createRouter({

@@ -47,7 +47,6 @@
       <div class="actions">
         <button @click="goToNewPeriod" class="btn-secondary">Новый период</button>
         <button @click="goToPeriods" class="btn-secondary">Все периоды</button>
-        <button @click="goToStats" class="btn-secondary">Статистика</button>
         <button @click="handleDeletePeriod" class="btn-danger">Удалить период</button>
       </div>
     </div>
@@ -168,7 +167,6 @@ const handleLogout = () => {
 }
 
 const goToNewPeriod = () => router.push('/new-period')
-const goToStats = () => router.push('/stats')
 const goToPeriods = () => router.push('/periods')
 
 const formatCurrency = (value: number) => {

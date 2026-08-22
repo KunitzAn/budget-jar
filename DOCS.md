@@ -95,9 +95,8 @@ budget-jar/
 │   │   │   ├── Login.vue         # Страница входа (Telegram Widget)
 │   │   │   ├── CurrentPeriod.vue # Главная — активный период
 │   │   │   ├── NewPeriod.vue     # Создание нового периода
-│   │   │   ├── Periods.vue       # Список всех периодов
-│   │   │   ├── PeriodDetail.vue  # Детальная страница периода
-│   │   │   └── Stats.vue         # Сводная статистика
+│   │   │   ├── Periods.vue       # Список периодов + сводная статистика
+│   │   │   └── PeriodDetail.vue  # Детальная страница периода
 │   │   ├── components/
 │   │   │   ├── StoneJar.vue      # SVG-банка с камушками
 │   │   │   ├── ExpenseForm.vue   # Форма добавления траты
@@ -290,9 +289,8 @@ Authorization: Bearer <JWT>
 | `/login`        | `Login.vue`       | нет  | Вход через Telegram              |
 | `/`             | `CurrentPeriod.vue` | да | Активный период                  |
 | `/new-period`   | `NewPeriod.vue`   | да   | Форма создания периода           |
-| `/periods`      | `Periods.vue`     | да   | Список всех периодов             |
+| `/periods`      | `Periods.vue`     | да   | Список периодов + сводная статистика |
 | `/periods/:id`  | `PeriodDetail.vue`| да   | Детальная страница периода       |
-| `/stats`        | `Stats.vue`       | да   | Сводная статистика               |
 
 Guard в роутере: если нет `token` в `localStorage` и маршрут требует авторизации — редирект на `/login`.
 
