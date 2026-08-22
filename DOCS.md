@@ -393,6 +393,25 @@ docker exec budget-jar-app npx prisma migrate deploy
 - `postgres` — PostgreSQL 15 Alpine, данные в named volume `postgres_data`;
 - `app` — бэкенд на порту `3001`.
 
+### Порядок деплоя бэкенда (обновление продакшна)
+
+Прод развёрнут на удалённом сервере, путь проекта — `/opt/budget-jar`.
+
+```bash
+ssh root@<адрес сервера>
+cd /opt/budget-jar
+git pull
+docker compose up -d --build app
+```
+
+Если в обновлении есть новые миграции Prisma — применить их после пересборки:
+
+```bash
+docker compose exec app npx prisma migrate deploy
+```
+
+(если контейнер только что пересоздан и ещё не готов принимать `exec`, использовать `docker compose run --rm app npx prisma migrate deploy`).
+
 ### Frontend — Cloudflare Pages
 
 Фронтенд деплоится на Cloudflare Pages. Продакшн-URL:
