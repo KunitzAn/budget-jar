@@ -70,6 +70,21 @@ export default async function periodsRoutes(server: FastifyInstance) {
       return reply.status(400).send({ error: 'Total sum must be positive' })
     }
 
+    const overlapping = await prisma.period.findFirst({
+      where: {
+        userId: request.userId,
+        startDate: { lte: end },
+        endDate: { gte: start }
+      }
+    })
+
+    if (overlapping) {
+      return reply.status(409).send({
+        error: 'Period dates overlap with existing period',
+        conflictingPeriodId: overlapping.id
+      })
+    }
+
     const period = await prisma.period.create({
       data: {
         userId: request.userId,

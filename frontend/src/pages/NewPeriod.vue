@@ -11,27 +11,32 @@
         <h2>Создайте новый бюджетный период</h2>
       </div>
 
-      <PeriodPicker @create="handleCreate" />
+      <PeriodPicker @create="handleCreate" :error="errorMessage" @clear-error="errorMessage = ''" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createPeriod } from '../api/periods'
 import PeriodPicker from '../components/PeriodPicker.vue'
 
 const router = useRouter()
+const errorMessage = ref('')
 
 const handleCreate = async (data: { startDate: string; endDate: string; totalSum: number }) => {
+  errorMessage.value = ''
   try {
     await createPeriod(data)
     router.push('/')
   } catch (error: any) {
-    if (error.response?.status === 400) {
-      alert('Ошибка: проверьте даты и сумму')
+    if (error.response?.status === 409) {
+      errorMessage.value = 'Период с такими датами уже существует. Выберите другие даты.'
+    } else if (error.response?.status === 400) {
+      errorMessage.value = 'Ошибка: проверьте даты и сумму'
     } else {
-      alert('Не удалось создать период. Попробуйте снова.')
+      errorMessage.value = 'Не удалось создать период. Попробуйте снова.'
     }
   }
 }

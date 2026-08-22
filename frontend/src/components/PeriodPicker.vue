@@ -15,6 +15,8 @@
       <input v-model.number="totalSum" type="number" placeholder="50000" class="input" />
     </div>
 
+    <p v-if="error" class="error-message">{{ error }}</p>
+
     <button @click="handleCreate" class="btn-primary" :disabled="!isValid">
       Создать период
     </button>
@@ -22,15 +24,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+
+const props = defineProps<{
+  error?: string
+}>()
 
 const emit = defineEmits<{
   create: [data: { startDate: string; endDate: string; totalSum: number }]
+  'clear-error': []
 }>()
 
 const startDate = ref('')
 const endDate = ref('')
 const totalSum = ref<number | null>(null)
+
+watch([startDate, endDate, totalSum], () => {
+  if (props.error) emit('clear-error')
+})
 
 const isValid = computed(() => {
   return startDate.value && endDate.value && totalSum.value && totalSum.value > 0
@@ -104,5 +115,11 @@ label {
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin: -0.5rem 0 0;
 }
 </style>
