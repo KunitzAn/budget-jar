@@ -47,13 +47,12 @@ const goBack = () => router.push('/')
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #F7F4EF;
 }
 
 .header {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid #E7E1D7;
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--card-border);
   padding: 1.25rem 2rem;
   display: flex;
   justify-content: space-between;
@@ -67,11 +66,14 @@ const goBack = () => router.push('/')
   font-family: 'Playfair Display', serif;
   font-size: 1.75rem;
   margin: 0;
-  color: #1F2421;
+  color: var(--text-primary);
 }
 
 .header h1 em {
-  color: #C4612F;
+  background: var(--gradient-rainbow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   font-style: italic;
 }
 
@@ -88,28 +90,28 @@ const goBack = () => router.push('/')
 
 .pill {
   display: inline-block;
-  background: #F2E3D6;
-  color: #C4612F;
+  background: var(--gradient-rainbow-soft);
+  color: var(--accent-purple);
   padding: 0.5rem 1.25rem;
   border-radius: 999px;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 1rem;
 }
 
 h2 {
   font-family: 'Playfair Display', serif;
   font-size: 2rem;
-  color: #1F2421;
+  color: var(--text-primary);
   margin: 0.75rem 0 0;
   letter-spacing: -0.02em;
 }
 
 .btn-secondary {
   padding: 0.625rem 1.5rem;
-  background: #FBF9F5;
-  color: #1F2421;
-  border: 1px solid #E7E1D7;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
   border-radius: 999px;
   font-size: 0.9375rem;
   font-weight: 500;
@@ -118,7 +120,7 @@ h2 {
 }
 
 .btn-secondary:hover {
-  background: #F7F4EF;
+  background: #ffffff;
   transform: translateY(-2px);
 }
 </style>

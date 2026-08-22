@@ -2,7 +2,7 @@
   <div class="login-page">
     <div class="login-card">
       <h1>Budget <em>Jar</em></h1>
-      <p class="subtitle">Храните деньги как камушки в банке</p>
+      <p class="subtitle">Копите волшебную пыльцу в своей банке ✨</p>
       
       <div class="telegram-widget" id="telegram-login"></div>
       
@@ -60,35 +60,54 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #F7F4EF 0%, #FBF9F5 100%);
   padding: 2rem;
 }
 
 .login-card {
-  background: #FFFFFF;
-  border-radius: 24px;
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--card-border);
+  border-radius: 28px;
   padding: 3rem 2.5rem;
-  box-shadow: 0 10px 40px rgba(31, 36, 33, 0.08);
+  box-shadow: 0 20px 60px rgba(155, 107, 255, 0.18), 0 4px 16px rgba(255, 111, 165, 0.12);
   text-align: center;
   max-width: 420px;
   width: 100%;
+  position: relative;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 28px;
+  padding: 1px;
+  background: var(--gradient-rainbow);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 h1 {
   font-family: 'Playfair Display', serif;
   font-size: 3rem;
-  color: #1F2421;
+  color: var(--text-primary);
   margin: 0 0 0.5rem;
   letter-spacing: -0.02em;
 }
 
 h1 em {
-  color: #C4612F;
+  background: var(--gradient-rainbow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   font-style: italic;
 }
 
 .subtitle {
-  color: #5C635D;
+  color: var(--text-secondary);
   font-size: 1.125rem;
   margin: 0 0 2.5rem;
 }
@@ -101,7 +120,7 @@ h1 em {
 }
 
 .hint {
-  color: #5C635D;
+  color: var(--text-secondary);
   font-size: 0.875rem;
   margin: 1.5rem 0 0;
 }

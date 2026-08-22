@@ -40,39 +40,41 @@ const handleAdd = () => {
 
 .input {
   padding: 0.75rem 1.25rem;
-  border: 1px solid #E7E1D7;
+  border: 1px solid var(--card-border);
   border-radius: 999px;
   font-size: 1rem;
   width: 200px;
-  background: #FFFFFF;
-  transition: border-color 0.2s;
+  background: rgba(255, 255, 255, 0.85);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .input:focus {
   outline: none;
-  border-color: #C4612F;
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 3px rgba(155, 107, 255, 0.15);
 }
 
 .btn-primary {
   padding: 0.75rem 2rem;
-  background: #C4612F;
+  background: var(--gradient-rainbow);
   color: white;
   border: none;
   border-radius: 999px;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 6px 18px rgba(255, 111, 165, 0.35);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #A94E22;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(196, 97, 47, 0.3);
+  box-shadow: 0 10px 24px rgba(255, 111, 165, 0.45);
 }
 
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 </style>

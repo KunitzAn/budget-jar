@@ -190,13 +190,12 @@ onMounted(fetchPeriod)
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #F7F4EF;
 }
 
 .header {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid #E7E1D7;
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--card-border);
   padding: 1.25rem 2rem;
   display: flex;
   justify-content: space-between;
@@ -210,11 +209,14 @@ onMounted(fetchPeriod)
   font-family: 'Playfair Display', serif;
   font-size: 1.75rem;
   margin: 0;
-  color: #1F2421;
+  color: var(--text-primary);
 }
 
 .header h1 em {
-  color: #C4612F;
+  background: var(--gradient-rainbow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   font-style: italic;
 }
 
@@ -233,17 +235,17 @@ onMounted(fetchPeriod)
 
 .pill {
   display: inline-block;
-  background: #F2E3D6;
-  color: #C4612F;
+  background: var(--gradient-rainbow-soft);
+  color: var(--accent-purple);
   padding: 0.5rem 1.25rem;
   border-radius: 999px;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .days-left {
   margin: 0.75rem 0 0;
-  color: #5C635D;
+  color: var(--text-secondary);
   font-size: 1rem;
 }
 
@@ -254,28 +256,30 @@ onMounted(fetchPeriod)
 }
 
 .stat-card {
-  background: #FFFFFF;
-  border: 1px solid #E7E1D7;
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  box-shadow: 0 8px 24px rgba(155, 107, 255, 0.08);
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #5C635D;
+  color: var(--text-secondary);
 }
 
 .stat-value {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1F2421;
+  color: var(--text-primary);
 }
 
 .stat-value.negative {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .stat-value.small {
@@ -294,49 +298,50 @@ onMounted(fetchPeriod)
   border: none;
   border-radius: 999px;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-primary {
-  background: #C4612F;
+  background: var(--gradient-rainbow);
   color: white;
+  box-shadow: 0 6px 18px rgba(255, 111, 165, 0.35);
 }
 
 .btn-primary:hover {
-  background: #A94E22;
   transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(255, 111, 165, 0.45);
 }
 
 .btn-secondary {
-  background: #FBF9F5;
-  color: #1F2421;
-  border: 1px solid #E7E1D7;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
 }
 
 .btn-secondary:hover {
-  background: #F7F4EF;
+  background: #ffffff;
   transform: translateY(-2px);
 }
 
 .btn-danger {
-  background: #FBF9F5;
-  color: #dc2626;
-  border: 1px solid #f0c9c0;
+  background: var(--card-bg);
+  color: var(--danger);
+  border: 1px solid rgba(255, 92, 122, 0.35);
 }
 
 .btn-danger:hover {
-  background: #dc2626;
+  background: var(--danger);
   color: white;
-  border-color: #dc2626;
+  border-color: var(--danger);
   transform: translateY(-2px);
 }
 
 .loading, .error-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: #5C635D;
+  color: var(--text-secondary);
 }
 
 .error-state {
