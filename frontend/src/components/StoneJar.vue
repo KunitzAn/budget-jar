@@ -13,7 +13,7 @@
           <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
         </radialGradient>
         <clipPath id="jarClip">
-          <path d="M 41 55 L 41 349 Q 41 379 70 379 L 130 379 Q 159 379 159 349 L 159 55 Z" />
+          <path d="M 41 52 L 41 349 Q 41 379 70 379 L 130 379 Q 159 379 159 349 L 159 52 Q 159 32 141 32 L 59 32 Q 41 32 41 52" />
         </clipPath>
       </defs>
 
@@ -91,7 +91,7 @@ const dustParticles = computed(() => {
 
   const fillRatio = Math.max(0, Math.min(props.currentBalance / props.totalSum, 1))
   const particleCount = Math.floor(fillRatio * 380) + 35
-  const maxHeight = 58 // доверху
+  const maxHeight = 38 // доверху, у самого горлышка
   const minHeight = 350 // почти пусто
   const bottomY = 377 // самое дно банки
   const fillHeight = minHeight - (fillRatio * (minHeight - maxHeight))
