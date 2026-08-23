@@ -20,6 +20,10 @@
         <h2>Список периодов</h2>
       </div>
 
+      <div v-if="periods.length > 0" class="summary-range">
+        Статистика за период: {{ formatDateRange(overallRange.start, overallRange.end) }}
+      </div>
+
       <div class="summary-cards">
         <div class="summary-card">
           <span class="card-label">Общий доход</span>
@@ -33,9 +37,13 @@
 
         <div class="summary-card highlight">
           <span class="card-label">Итоговый баланс</span>
-          <span class="card-value" :class="(stats?.balance || 0) >= 0 ? 'positive' : 'negative'">
-            {{ formatCurrency(stats?.balance || 0) }}
+          <span class="card-value" :class="overallBalance >= 0 ? 'positive' : 'negative'">
+            {{ formatCurrency(overallBalance) }}
           </span>
+          <label class="balance-toggle">
+            <input type="checkbox" v-model="onlyAccrued" />
+            Только накопленное по сегодня
+          </label>
         </div>
       </div>
 
@@ -76,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPeriods, deletePeriod } from '../api/periods'
 import { getStats } from '../api/stats'
@@ -88,6 +96,7 @@ const error = ref('')
 const periods = ref<Period[]>([])
 const stats = ref<Stats | null>(null)
 const deletingId = ref<number | null>(null)
+const onlyAccrued = ref(false)
 
 const fetchPeriods = async () => {
   try {
@@ -141,6 +150,28 @@ const isActive = (p: Period) => {
   const now = Date.now()
   return new Date(p.startDate).getTime() <= now && new Date(p.endDate).getTime() >= now
 }
+
+// сумма, которая будет накоплена ко всем периодам, если по текущему
+// периоду больше ничего не тратить (включая ещё не начавшиеся периоды)
+const projectedBalance = computed(() => stats.value?.balance || 0)
+
+// то, что реально накоплено на сегодня: по завершённым и активному
+// периоду — earnedSoFar минус потрачено, будущие периоды не считаются
+const accruedBalance = computed(() =>
+  periods.value.reduce((sum, p) => sum + currentBalance(p), 0)
+)
+
+const overallBalance = computed(() => (onlyAccrued.value ? accruedBalance.value : projectedBalance.value))
+
+const overallRange = computed(() => {
+  if (periods.value.length === 0) return { start: '', end: '' }
+  const start = periods.value.reduce((min, p) => (p.startDate < min ? p.startDate : min), periods.value[0].startDate)
+  const active = periods.value.find(isActive)
+  const end = active
+    ? active.endDate
+    : periods.value.reduce((max, p) => (p.endDate > max ? p.endDate : max), periods.value[0].endDate)
+  return { start, end }
+})
 
 const openPeriod = (id: number) => router.push(`/periods/${id}`)
 
@@ -217,11 +248,36 @@ onMounted(fetchPeriods)
   gap: 0.75rem;
 }
 
+.summary-range {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  margin-bottom: 1.25rem;
+}
+
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.5rem;
   margin-bottom: 3rem;
+}
+
+.balance-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 0.25rem;
+}
+
+.balance-toggle input {
+  accent-color: var(--accent-purple);
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
 }
 
 .summary-card {
