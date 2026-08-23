@@ -56,9 +56,9 @@
               <span class="period-spent">Потрачено: {{ formatCurrency(spent(p)) }}</span>
               <span
                 class="period-balance"
-                :class="balance(p) >= 0 ? 'positive' : 'negative'"
+                :class="currentBalance(p) >= 0 ? 'positive' : 'negative'"
               >
-                {{ balance(p) >= 0 ? '+' : '' }}{{ formatCurrency(balance(p)) }}
+                {{ currentBalance(p) >= 0 ? '+' : '' }}{{ formatCurrency(currentBalance(p)) }} / {{ formatCurrency(balance(p)) }}
               </span>
             </div>
           </div>
@@ -106,6 +106,36 @@ const fetchPeriods = async () => {
 const spent = (p: Period) => p.expenses.reduce((sum, e) => sum + Number(e.amount), 0)
 
 const balance = (p: Period) => Number(p.totalSum) - spent(p)
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24
+const MSK_OFFSET_MS = 3 * 60 * 60 * 1000 // МСК = UTC+3
+
+// округляем момент до «дня» по московскому времени
+// (новый день наступает в 00:00 МСК, а не 00:00 UTC)
+const toUTCDay = (d: string | Date) => {
+  const t = new Date(d).getTime() + MSK_OFFSET_MS
+  const dt = new Date(t)
+  return Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())
+}
+
+const totalDays = (p: Period) =>
+  Math.round((toUTCDay(p.endDate) - toUTCDay(p.startDate)) / MS_PER_DAY) + 1
+
+const daysPassed = (p: Period) => {
+  const days = totalDays(p)
+  const start = toUTCDay(p.startDate)
+  const today = toUTCDay(new Date())
+  const passed = Math.round((today - start) / MS_PER_DAY) + 1
+  return Math.max(0, Math.min(passed, days))
+}
+
+const earnedSoFar = (p: Period) => {
+  const days = totalDays(p)
+  if (days <= 0) return 0
+  return (Number(p.totalSum) / days) * daysPassed(p)
+}
+
+const currentBalance = (p: Period) => earnedSoFar(p) - spent(p)
 
 const isActive = (p: Period) => {
   const now = Date.now()
