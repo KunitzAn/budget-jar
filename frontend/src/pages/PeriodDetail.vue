@@ -55,6 +55,14 @@
           <div v-for="exp in sortedExpenses" :key="exp.id" class="expense-row">
             <span class="expense-date">{{ formatDate(exp.date) }}</span>
             <span class="expense-amount">−{{ formatCurrency(Number(exp.amount)) }}</span>
+            <button
+              @click="handleDeleteExpense(exp.id)"
+              class="expense-delete"
+              aria-label="Удалить трату"
+              title="Удалить трату"
+            >
+              ×
+            </button>
           </div>
         </div>
       </div>
@@ -71,7 +79,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPeriod, deletePeriod } from '../api/periods'
-import { addExpense } from '../api/expenses'
+import { addExpense, deleteExpense } from '../api/expenses'
 import StoneJar from '../components/StoneJar.vue'
 import ExpenseForm from '../components/ExpenseForm.vue'
 import type { Period } from '../types'
@@ -179,6 +187,16 @@ const handleAddExpense = async (amount: number, date: string) => {
     await fetchPeriod()
   } catch (err) {
     alert('Ошибка добавления траты')
+  }
+}
+
+const handleDeleteExpense = async (expenseId: number) => {
+  if (!confirm('Удалить эту трату?')) return
+  try {
+    await deleteExpense(expenseId)
+    await fetchPeriod()
+  } catch (err) {
+    alert('Не удалось удалить трату')
   }
 }
 
@@ -346,6 +364,25 @@ onMounted(fetchPeriod)
 .expense-amount {
   color: var(--danger);
   font-weight: 600;
+}
+
+.expense-delete {
+  margin-left: 0.75rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.expense-delete:hover {
+  background: var(--danger);
+  color: white;
 }
 
 .actions {
