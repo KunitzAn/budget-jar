@@ -1,0 +1,14 @@
+name = "budget-jar-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-25"
+compatibility_flags = ["nodejs_compat"]
+
+# Секреты (JWT_SECRET, TELEGRAM_BOT_TOKEN, DATABASE_URL) задаются отдельно:
+#   npx wrangler secret put JWT_SECRET
+#   npx wrangler secret put TELEGRAM_BOT_TOKEN
+#   npx wrangler secret put DATABASE_URL
+# Не хранить их здесь в открытом виде.
+
+[[routes]]
+pattern = "api-jar.kunitcan.online"
+custom_domain = true

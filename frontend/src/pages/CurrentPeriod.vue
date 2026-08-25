@@ -139,10 +139,10 @@ const fetchPeriod = async () => {
   }
 }
 
-const handleAddExpense = async (amount: number) => {
+const handleAddExpense = async (amount: number, date: string) => {
   if (!period.value) return
   try {
-    await addExpense(period.value.id, { amount })
+    await addExpense(period.value.id, { amount, date })
     await fetchPeriod()
   } catch (err) {
     alert('Ошибка добавления траты')

@@ -7,6 +7,12 @@
       class="input"
       @keyup.enter="handleAdd"
     />
+    <input
+      v-model="date"
+      type="date"
+      class="input input-date"
+      :max="today"
+    />
     <button @click="handleAdd" class="btn-primary" :disabled="!amount || amount <= 0">
       Добавить трату
     </button>
@@ -17,15 +23,19 @@
 import { ref } from 'vue'
 
 const emit = defineEmits<{
-  add: [amount: number]
+  add: [amount: number, date: string]
 }>()
 
+const today = new Date().toISOString().slice(0, 10)
+
 const amount = ref<number | null>(null)
+const date = ref(today)
 
 const handleAdd = () => {
   if (amount.value && amount.value > 0) {
-    emit('add', amount.value)
+    emit('add', amount.value, date.value)
     amount.value = null
+    date.value = today
   }
 }
 </script>
@@ -52,6 +62,10 @@ const handleAdd = () => {
   outline: none;
   border-color: var(--accent-purple);
   box-shadow: 0 0 0 3px rgba(155, 107, 255, 0.15);
+}
+
+.input-date {
+  width: 170px;
 }
 
 .btn-primary {

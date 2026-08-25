@@ -45,14 +45,16 @@ Budget Jar позволяет:
           └──────────┬──────────┘
                      │ REST / JSON
           ┌──────────▼──────────┐
-          │   Backend (Fastify) │   api-jar.kunitcan.online
-          │   Node.js + Prisma  │   порт 3001
+          │  Backend (Hono)     │   Cloudflare Worker
+          │  budget-jar-api     │   api-jar.kunitcan.online
           └──────────┬──────────┘
-                     │
+                     │ Prisma + @prisma/adapter-neon
           ┌──────────▼──────────┐
-          │    PostgreSQL 15    │   Docker volume
+          │  PostgreSQL (Neon)  │   serverless, pooled connection
           └─────────────────────┘
 ```
+
+Полностью serverless: нет своего VPS/сервера — только Cloudflare (Pages + Workers) и Neon. Подробности переезда с VPS — в [`MIGRATION_PLAN.md`](./MIGRATION_PLAN.md).
 
 ---
 
@@ -60,25 +62,29 @@ Budget Jar позволяет:
 
 ```
 budget-jar/
-├── backend/                 # Node.js сервер
+├── worker/                  # Backend на Cloudflare Worker
 │   ├── src/
-│   │   ├── server.ts        # Точка входа, регистрация плагинов и роутов
+│   │   ├── index.ts         # Точка входа (Hono app), CORS, регистрация роутов
 │   │   ├── middleware/
-│   │   │   └── auth.ts      # JWT-проверка для защищённых роутов
+│   │   │   └── auth.ts      # JWT-проверка (jose) для защищённых роутов
 │   │   ├── routes/
 │   │   │   ├── auth.ts      # POST /auth/telegram
 │   │   │   ├── periods.ts   # CRUD периодов
 │   │   │   ├── expenses.ts  # Добавление/удаление трат
 │   │   │   └── stats.ts     # Сводная статистика
 │   │   ├── lib/
-│   │   │   └── prisma.ts    # Singleton Prisma Client
+│   │   │   ├── prisma.ts    # Prisma Client (adapter-neon, runtime = workerd)
+│   │   │   ├── jwt.ts       # sign/verify JWT через jose
+│   │   │   └── telegram.ts  # HMAC-проверка Telegram через Web Crypto
 │   │   └── generated/       # Автогенерированный Prisma Client
 │   ├── prisma/
 │   │   ├── schema.prisma    # Схема БД
 │   │   └── migrations/      # SQL-миграции
-│   ├── Dockerfile
-│   ├── docker-compose.dev.yml
+│   ├── wrangler.toml        # Конфиг Worker + custom domain
 │   └── package.json
+│
+├── backend/                 # УСТАРЕЛО — старый Fastify-сервер под VPS, не используется.
+│                             # Оставлен временно как архив/откат, см. MIGRATION_PLAN.md.
 │
 ├── frontend/                # Vue 3 SPA
 │   ├── src/
@@ -107,8 +113,9 @@ budget-jar/
 │   │       └── api.ts       # axios instance с Authorization header
 │   └── package.json
 │
-├── docker-compose.yml       # Продакшн: postgres + backend
-└── DOCS.md                  # Этот файл
+├── docker-compose.yml       # УСТАРЕЛО — не используется, оставлен как архив
+├── DOCS.md                  # Этот файл
+└── MIGRATION_PLAN.md        # План переезда с VPS на Neon + Cloudflare Worker
 ```
 
 ---
@@ -154,7 +161,7 @@ budget-jar/
 
 ## Backend API
 
-**База URL:** `http://localhost:3001` (dev) / `https://api-jar.kunitcan.online` (prod)
+**База URL:** `http://localhost:8787` (dev, `wrangler dev`) / `https://api-jar.kunitcan.online` (prod, Cloudflare Worker)
 
 Все роуты кроме `/auth/telegram` и `/health` требуют заголовок:
 ```
@@ -377,38 +384,47 @@ interface TelegramUser {
 
 ## Деплой
 
-### Backend + PostgreSQL — Docker Compose
+### БД — Neon
+
+PostgreSQL хостится в [Neon](https://neon.tech) (serverless Postgres, бесплатный tier). Проект `budget-jar`, база `neondb`.
+
+- Для миграций используется **direct**-connection string (Neon Dashboard → Connection Details).
+- Для рантайма Worker'а используется **pooled**-connection string (тот же экран, вариант с `-pooler` в хосте) — она прописана как секрет `DATABASE_URL`.
+
+### Backend — Cloudflare Worker
 
 ```bash
-# Продакшн запуск
-docker-compose up -d
-
-# Применить миграции
-docker exec budget-jar-app npx prisma migrate deploy
+cd worker
+npm install
+npx prisma generate     # сгенерировать Prisma Client (runtime = workerd)
+npx wrangler deploy     # задеплоить Worker
 ```
 
-`docker-compose.yml` поднимает два сервиса:
-- `postgres` — PostgreSQL 15 Alpine, данные в named volume `postgres_data`;
-- `app` — бэкенд на порту `3001`.
+`wrangler.toml` задаёт имя Worker'а (`budget-jar-api`) и custom domain (`api-jar.kunitcan.online` — привязывается автоматически при деплое, DNS-запись на домене должна отсутствовать/не быть занятой другим сервисом).
 
-### Порядок деплоя бэкенда (обновление продакшна)
+**Секреты** (не хранятся в репозитории, задаются один раз через Cloudflare):
+```bash
+npx wrangler secret put DATABASE_URL       # pooled connection string из Neon
+npx wrangler secret put JWT_SECRET
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+```
 
-Прод развёрнут на удалённом сервере, путь проекта — `/opt/budget-jar`.
+**Применить миграции Prisma** (если менялась схема) — с локальной машины, указав в `worker/.env`/окружении `DATABASE_URL` (direct-connection Neon):
+```bash
+cd worker
+npx prisma migrate deploy
+```
+
+### Обновление продакшна
 
 ```bash
-ssh root@<адрес сервера>
-cd /opt/budget-jar
+cd worker
 git pull
-docker compose up -d --build app
+npx prisma generate
+npx wrangler deploy
 ```
 
-Если в обновлении есть новые миграции Prisma — применить их после пересборки:
-
-```bash
-docker compose exec app npx prisma migrate deploy
-```
-
-(если контейнер только что пересоздан и ещё не готов принимать `exec`, использовать `docker compose run --rm app npx prisma migrate deploy`).
+Если есть новые миграции — прогнать `npx prisma migrate deploy` (см. выше) до или после деплоя Worker'а.
 
 ### Frontend — Cloudflare Pages
 
@@ -424,48 +440,42 @@ docker compose exec app npx prisma migrate deploy
 
 ### Предварительные требования
 - Node.js 20+
-- Docker и Docker Compose (для PostgreSQL)
+- Аккаунт Neon (БД, общий для dev/prod, либо отдельная dev-ветка в Neon)
+- Аккаунт Cloudflare + `wrangler login` (для локального запуска Worker'а и деплоя)
 
 ### Запуск
 
-**1. База данных (через Docker):**
+**1. Backend (Cloudflare Worker):**
 ```bash
-cd backend
-docker-compose -f docker-compose.dev.yml up -d
-```
-
-**2. Backend:**
-```bash
-cd backend
-cp .env.example .env  # заполнить DATABASE_URL, JWT_SECRET, TELEGRAM_BOT_TOKEN
+cd worker
+cp .dev.vars.example .dev.vars  # заполнить DATABASE_URL, JWT_SECRET, TELEGRAM_BOT_TOKEN
 npm install
 npm run prisma:generate
-npm run prisma:migrate
-npm run dev
+npx wrangler dev --port 8787
 ```
-Сервер запустится на `http://localhost:3001`.
+Worker запустится на `http://localhost:8787`. Секреты для `wrangler dev` читаются из `.dev.vars` (в `.gitignore`, в репозиторий не попадает).
 
-**3. Frontend:**
+**2. Frontend:**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Приложение откроется на `http://localhost:5173`.
+Приложение откроется на `http://localhost:5173`, `VITE_API_URL` из `.env.development` должен указывать на `http://localhost:8787`.
 
 ---
 
 ## Переменные окружения
 
-### Backend (`backend/.env`)
+### Backend (`worker/.dev.vars` локально, секреты Cloudflare в продакшне)
 
 | Переменная            | Обязательная | Описание                                             |
 |-----------------------|:------------:|------------------------------------------------------|
-| `DATABASE_URL`        | да           | Строка подключения PostgreSQL                        |
-| `JWT_SECRET`          | да           | Секрет для подписи JWT (менять в продакшне!)         |
+| `DATABASE_URL`        | да           | Строка подключения Neon Postgres (pooled в проде, direct/pooled для dev) |
+| `JWT_SECRET`          | да           | Секрет для подписи JWT                               |
 | `TELEGRAM_BOT_TOKEN`  | да           | Токен бота из @BotFather (используется для верификации) |
-| `PORT`                | нет          | Порт сервера (default: `3001`)                       |
-| `HOST`                | нет          | Хост сервера (default: `0.0.0.0`)                    |
+
+В продакшне переменные задаются через `npx wrangler secret put <NAME>` и не хранятся в файлах репозитория. Локально — в `worker/.dev.vars` (в `.gitignore`), по образцу `worker/.dev.vars.example`.
 
 ### Frontend (`frontend/.env.*`)
 
@@ -474,7 +484,7 @@ npm run dev
 | `VITE_API_URL`  | Базовый URL backend API          |
 
 Файлы:
-- `.env.development` → `http://localhost:3001`
+- `.env.development` → `http://localhost:8787`
 - `.env.production` → `https://api-jar.kunitcan.online`
 
 ---
