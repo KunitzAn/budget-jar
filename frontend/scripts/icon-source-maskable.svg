@@ -1,0 +1,44 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff1e6" />
+      <stop offset="100%" stop-color="#eef1ff" />
+    </linearGradient>
+    <linearGradient id="jarStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff6fa5" />
+      <stop offset="35%" stop-color="#ffa15c" />
+      <stop offset="65%" stop-color="#4fc3f7" />
+      <stop offset="100%" stop-color="#9b6bff" />
+    </linearGradient>
+    <clipPath id="jarClip">
+      <path d="M 165 176 L 165 315 Q 165 341 191 341 L 321 341 Q 347 341 347 315 L 347 176 Q 347 158 331 158 L 181 158 Q 165 158 165 176" />
+    </clipPath>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)" />
+
+  <!-- Горлышко -->
+  <rect x="196" y="120" width="120" height="46" rx="10" fill="none" stroke="url(#jarStroke)" stroke-width="10" />
+
+  <!-- Банка -->
+  <path
+    d="M 164 174 L 164 316 Q 164 350 198 350 L 314 350 Q 348 350 348 316 L 348 174 Q 348 148 322 148 L 190 148 Q 164 148 164 174"
+    fill="rgba(255,255,255,0.6)"
+    stroke="url(#jarStroke)"
+    stroke-width="10"
+  />
+
+  <!-- Пыльца -->
+  <g clip-path="url(#jarClip)">
+    <circle cx="200" cy="300" r="10" fill="#ff6fa5" />
+    <circle cx="235" cy="320" r="7" fill="#ffa15c" />
+    <circle cx="270" cy="295" r="9" fill="#4fc3f7" />
+    <circle cx="300" cy="325" r="6" fill="#9b6bff" />
+    <circle cx="310" cy="290" r="8" fill="#ffd166" />
+    <circle cx="220" cy="330" r="5" fill="#4fc3f7" />
+    <circle cx="255" cy="255" r="8" fill="#9b6bff" />
+    <circle cx="290" cy="250" r="6" fill="#ff6fa5" />
+    <circle cx="190" cy="260" r="6" fill="#ffa15c" />
+    <circle cx="325" cy="255" r="5" fill="#4fc3f7" />
+  </g>
+</svg>
