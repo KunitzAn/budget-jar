@@ -16,13 +16,62 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Budget Jar" />
 
+    <!-- Сплэш-скрины при холодном запуске PWA на iOS (иначе — белый экран) -->
+    <link rel="apple-touch-startup-image" href="/splash/iphone-430x932-3x.png" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash/iphone-393x852-3x.png" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash/iphone-428x926-3x.png" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash/iphone-390x844-3x.png" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash/iphone-375x812-3x.png" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash/iphone-414x896-3x.png" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash/iphone-414x896-2x.png" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash/iphone-414x736-3x.png" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" href="/splash/iphone-375x667-2x.png" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+
+    <!-- Критический CSS: фон страницы сразу в брендовый цвет, без белой вспышки до монтирования Vue -->
+    <style>
+      html, body { background: #f5f5f7; margin: 0; }
+      #app-loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #app-loading svg { width: 96px; height: 96px; animation: app-loading-pulse 1.4s ease-in-out infinite; }
+      @keyframes app-loading-pulse {
+        0%, 100% { opacity: 0.55; transform: scale(0.96); }
+        50% { opacity: 1; transform: scale(1); }
+      }
+    </style>
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!-- Показывается, пока грузится и монтируется Vue-приложение; mount('#app') заменит это содержимое -->
+      <div id="app-loading">
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="loading-jar-stroke" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#ff6fa5" />
+              <stop offset="35%" stop-color="#ffa15c" />
+              <stop offset="65%" stop-color="#4fc3f7" />
+              <stop offset="100%" stop-color="#9b6bff" />
+            </linearGradient>
+          </defs>
+          <rect x="166" y="76" width="180" height="66" rx="14" fill="none" stroke="url(#loading-jar-stroke)" stroke-width="16" />
+          <path
+            d="M 116 164 L 116 374 Q 116 416 158 416 L 354 416 Q 396 416 396 374 L 396 164 Q 396 128 360 128 L 152 128 Q 116 128 116 164"
+            fill="rgba(255,255,255,0.5)"
+            stroke="url(#loading-jar-stroke)"
+            stroke-width="16"
+          />
+        </svg>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
