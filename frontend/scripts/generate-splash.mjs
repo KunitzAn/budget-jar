@@ -13,8 +13,10 @@ const BG = '#f5f5f7' // = manifest.background_color
 
 // device-width x device-height (CSS px, portrait) + DPR — покрывает актуальные iPhone.
 const devices = [
+  { name: 'iphone-440x956-3x', width: 440, height: 956, dpr: 3 }, // 16 Pro Max
   { name: 'iphone-430x932-3x', width: 430, height: 932, dpr: 3 }, // 15/16 Plus, Pro Max (15 Pro Max и т.п.)
-  { name: 'iphone-393x852-3x', width: 393, height: 852, dpr: 3 }, // 15/16, 15/16 Pro
+  { name: 'iphone-402x874-3x', width: 402, height: 874, dpr: 3 }, // 16 Pro
+  { name: 'iphone-393x852-3x', width: 393, height: 852, dpr: 3 }, // 15/16, 15 Pro
   { name: 'iphone-428x926-3x', width: 428, height: 926, dpr: 3 }, // 12/13/14 Pro Max, 14 Plus
   { name: 'iphone-390x844-3x', width: 390, height: 844, dpr: 3 }, // 12/13/14, 12/13 Pro
   { name: 'iphone-375x812-3x', width: 375, height: 812, dpr: 3 }, // X/XS/11 Pro/12/13 mini
