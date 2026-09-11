@@ -7,7 +7,9 @@ export interface Period {
 }
 
 export interface Expense {
-  id: number
+  // строковый id вида `local-...` — трата, добавленная офлайн и ещё не
+  // отправленная на сервер (см. frontend/src/lib/offlineQueue.ts)
+  id: number | string
   amount: number
   date: string
   note?: string

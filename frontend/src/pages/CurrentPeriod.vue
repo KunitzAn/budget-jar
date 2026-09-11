@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCurrentPeriod, deletePeriod } from '../api/periods'
 import { addExpense } from '../api/expenses'
@@ -184,7 +184,13 @@ const formatDateRange = (start: string, end: string) => {
   return `${fmt.format(startDate)} — ${fmt.format(endDate)}`
 }
 
-onMounted(fetchPeriod)
+onMounted(() => {
+  fetchPeriod()
+  window.addEventListener('offline-sync-complete', fetchPeriod)
+})
+onUnmounted(() => {
+  window.removeEventListener('offline-sync-complete', fetchPeriod)
+})
 </script>
 
 <style scoped>

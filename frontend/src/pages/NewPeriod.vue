@@ -11,19 +11,42 @@
         <h2>Создайте новый бюджетный период</h2>
       </div>
 
-      <PeriodPicker @create="handleCreate" :error="errorMessage" @clear-error="errorMessage = ''" />
+      <PeriodPicker
+        @create="handleCreate"
+        :error="errorMessage"
+        :disabled="!isOnline"
+        @clear-error="handleClearError"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createPeriod } from '../api/periods'
+import { useOnlineStatus } from '../composables/useOnlineStatus'
 import PeriodPicker from '../components/PeriodPicker.vue'
 
+const OFFLINE_MESSAGE = 'Нужно подключение к интернету, чтобы создать период'
+
 const router = useRouter()
-const errorMessage = ref('')
+const { isOnline } = useOnlineStatus()
+const errorMessage = ref(isOnline.value ? '' : OFFLINE_MESSAGE)
+
+// создание периода требует сети (пересечение дат проверяется только сервером) —
+// держим предупреждение видимым, пока связи нет
+watch(isOnline, (online) => {
+  if (!online) {
+    errorMessage.value = OFFLINE_MESSAGE
+  } else if (errorMessage.value === OFFLINE_MESSAGE) {
+    errorMessage.value = ''
+  }
+})
+
+const handleClearError = () => {
+  if (errorMessage.value !== OFFLINE_MESSAGE) errorMessage.value = ''
+}
 
 const handleCreate = async (data: { startDate: string; endDate: string; totalSum: number }) => {
   errorMessage.value = ''
@@ -31,7 +54,9 @@ const handleCreate = async (data: { startDate: string; endDate: string; totalSum
     const { data: created } = await createPeriod(data)
     router.push(`/periods/${created.id}`)
   } catch (error: any) {
-    if (error.response?.status === 409) {
+    if (!error.response) {
+      errorMessage.value = OFFLINE_MESSAGE
+    } else if (error.response?.status === 409) {
       errorMessage.value = 'Период с такими датами уже существует. Выберите другие даты.'
     } else if (error.response?.status === 400) {
       errorMessage.value = 'Ошибка: проверьте даты и сумму'

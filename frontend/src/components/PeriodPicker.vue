@@ -17,7 +17,7 @@
 
     <p v-if="error" class="error-message">{{ error }}</p>
 
-    <button @click="handleCreate" class="btn-primary" :disabled="!isValid">
+    <button @click="handleCreate" class="btn-primary" :disabled="!isValid || disabled">
       Создать период
     </button>
   </div>
@@ -28,6 +28,7 @@ import { ref, computed, watch } from 'vue'
 
 const props = defineProps<{
   error?: string
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{

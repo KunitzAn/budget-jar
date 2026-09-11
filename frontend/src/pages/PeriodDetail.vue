@@ -52,8 +52,11 @@
       <div v-if="period.expenses.length > 0" class="expenses-section">
         <h3>Траты ({{ period.expenses.length }})</h3>
         <div class="expenses-list">
-          <div v-for="exp in sortedExpenses" :key="exp.id" class="expense-row">
-            <span class="expense-date">{{ formatDate(exp.date) }}</span>
+          <div v-for="exp in sortedExpenses" :key="exp.id" class="expense-row" :class="{ pending: isPending(exp) }">
+            <span class="expense-date">
+              {{ formatDate(exp.date) }}
+              <span v-if="isPending(exp)" class="pending-badge">⏳ ожидает синхронизации</span>
+            </span>
             <span class="expense-amount">−{{ formatCurrency(Number(exp.amount)) }}</span>
             <button
               @click="handleDeleteExpense(exp.id)"
@@ -76,13 +79,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPeriod, deletePeriod } from '../api/periods'
 import { addExpense, deleteExpense } from '../api/expenses'
 import StoneJar from '../components/StoneJar.vue'
 import ExpenseForm from '../components/ExpenseForm.vue'
-import type { Period } from '../types'
+import type { Expense, Period } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -190,10 +193,13 @@ const handleAddExpense = async (amount: number, date: string) => {
   }
 }
 
-const handleDeleteExpense = async (expenseId: number) => {
+const isPending = (exp: Expense) => typeof exp.id === 'string' && exp.id.startsWith('local-')
+
+const handleDeleteExpense = async (expenseId: number | string) => {
+  if (!period.value) return
   if (!confirm('Удалить эту трату?')) return
   try {
-    await deleteExpense(expenseId)
+    await deleteExpense(expenseId, period.value.id)
     await fetchPeriod()
   } catch (err) {
     alert('Не удалось удалить трату')
@@ -230,7 +236,15 @@ const formatDateRange = (start: string, end: string) => {
 const formatDate = (d: string) =>
   new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d))
 
-onMounted(fetchPeriod)
+// после фоновой синхронизации офлайн-очереди (App.vue) перечитываем данные,
+// чтобы временные id и суммы поменялись на реальные без перехода на страницу
+onMounted(() => {
+  fetchPeriod()
+  window.addEventListener('offline-sync-complete', fetchPeriod)
+})
+onUnmounted(() => {
+  window.removeEventListener('offline-sync-complete', fetchPeriod)
+})
 </script>
 
 <style scoped>
@@ -359,6 +373,20 @@ onMounted(fetchPeriod)
 .expense-date {
   color: var(--text-secondary);
   font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.expense-row.pending {
+  opacity: 0.65;
+}
+
+.pending-badge {
+  font-size: 0.75rem;
+  color: var(--accent-purple);
+  font-weight: 500;
 }
 
 .expense-amount {
