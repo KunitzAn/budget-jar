@@ -2,48 +2,55 @@
   <div class="page">
     <header class="header">
       <h1>Budget <em>Jar</em></h1>
-      <button @click="goBack" class="btn-secondary">← Все периоды</button>
     </header>
 
     <div v-if="loading" class="loading">Загрузка...</div>
 
     <div v-else-if="error" class="error-state">
       <p>{{ error }}</p>
-      <button @click="goBack" class="btn-primary">К списку периодов</button>
+      <div class="actions">
+        <button @click="goToNewPeriod" class="btn-primary">Создать период</button>
+      </div>
     </div>
 
     <div v-else-if="period" class="content">
       <div class="period-header">
         <span class="pill">{{ formatDateRange(period.startDate, period.endDate) }}</span>
         <p class="days-left">
-          <template v-if="isActive">Осталось дней: {{ daysLeft }}</template>
-          <template v-else-if="isFuture">Период ещё не начался</template>
+          <template v-if="active">Осталось дней: {{ daysLeftValue }}</template>
+          <template v-else-if="future">Период ещё не начался</template>
           <template v-else>Период завершён</template>
         </p>
       </div>
 
-      <StoneJar :current-balance="currentBalance" :total-sum="Number(period.totalSum)" />
+      <StoneJar :current-balance="balance" :total-sum="Number(period.totalSum)" />
 
       <div class="stats-grid">
         <div class="stat-card">
           <span class="stat-label">Заработано на сегодня</span>
-          <span class="stat-value">{{ formatCurrency(earnedSoFar) }}</span>
+          <span class="stat-value">{{ formatCurrency(earned) }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Потрачено</span>
-          <span class="stat-value negative">{{ formatCurrency(spentSoFar) }}</span>
+          <span class="stat-value negative">{{ formatCurrency(spent) }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Потрачено сегодня</span>
-          <span class="stat-value negative">{{ formatCurrency(spentToday) }}</span>
+          <span class="stat-value negative">{{ formatCurrency(spentTodayValue) }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Дневная норма</span>
-          <span class="stat-value small">{{ formatCurrency(dailyBudget) }}</span>
+          <span class="stat-value small">{{ formatCurrency(daily) }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Бюджет периода</span>
           <span class="stat-value small">{{ formatCurrency(Number(period.totalSum)) }}</span>
+        </div>
+        <div class="stat-card highlight">
+          <span class="stat-label">Останется, если не тратить</span>
+          <span class="stat-value" :class="remaining >= 0 ? 'positive' : 'negative'">
+            {{ formatCurrency(remaining) }}
+          </span>
         </div>
       </div>
 
@@ -71,7 +78,7 @@
       </div>
 
       <div class="actions">
-        <button @click="goBack" class="btn-secondary">← Все периоды</button>
+        <button @click="goToNewPeriod" class="btn-secondary">Новый период</button>
         <button @click="handleDeletePeriod" class="btn-danger">Удалить период</button>
       </div>
     </div>
@@ -79,13 +86,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getPeriod, deletePeriod } from '../api/periods'
+import { getCurrentPeriod, getPeriod, deletePeriod } from '../api/periods'
 import { addExpense, deleteExpense } from '../api/expenses'
 import StoneJar from '../components/StoneJar.vue'
 import ExpenseForm from '../components/ExpenseForm.vue'
 import type { Expense, Period } from '../types'
+import * as pm from '../lib/periodMath'
 
 const route = useRoute()
 const router = useRouter()
@@ -93,88 +101,35 @@ const loading = ref(true)
 const error = ref('')
 const period = ref<Period | null>(null)
 
-const periodId = computed(() => parseInt(route.params.id as string))
+// на "/" параметра нет — грузим текущий период; на "/periods/:id" — конкретный
+const periodId = computed(() => (route.params.id ? parseInt(route.params.id as string) : null))
 
-const MS_PER_DAY = 1000 * 60 * 60 * 24
-const MSK_OFFSET_MS = 3 * 60 * 60 * 1000 // МСК = UTC+3
+const active = computed(() => (period.value ? pm.isActive(period.value) : false))
+const future = computed(() => (period.value ? pm.isFuture(period.value) : false))
+const daysLeftValue = computed(() => (period.value ? pm.daysLeft(period.value) : 0))
+const daily = computed(() => (period.value ? pm.dailyBudget(period.value) : 0))
+const spent = computed(() => (period.value ? pm.spentSoFar(period.value) : 0))
+const spentTodayValue = computed(() => (period.value ? pm.spentToday(period.value) : 0))
+const earned = computed(() => (period.value ? pm.earnedSoFar(period.value) : 0))
+const balance = computed(() => (period.value ? pm.currentBalance(period.value) : 0))
+const remaining = computed(() => (period.value ? pm.remainingIfNoMoreSpending(period.value) : 0))
 
-// округляем момент до «дня» по московскому времени
-// (новый день наступает в 00:00 МСК, а не 00:00 UTC)
-const toUTCDay = (d: string | Date) => {
-  const t = new Date(d).getTime() + MSK_OFFSET_MS
-  const dt = new Date(t)
-  return Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())
-}
-
-const totalDays = computed(() => {
-  if (!period.value) return 0
-  return Math.round((toUTCDay(period.value.endDate) - toUTCDay(period.value.startDate)) / MS_PER_DAY) + 1
-})
-
-const dailyBudget = computed(() => {
-  if (!period.value || totalDays.value <= 0) return 0
-  return Number(period.value.totalSum) / totalDays.value
-})
-
-const daysPassed = computed(() => {
-  if (!period.value) return 0
-  const start = toUTCDay(period.value.startDate)
-  const today = toUTCDay(new Date())
-  const passed = Math.round((today - start) / MS_PER_DAY) + 1
-  return Math.max(0, Math.min(passed, totalDays.value))
-})
-
-const daysLeft = computed(() => {
-  if (!period.value) return 0
-  const end = toUTCDay(period.value.endDate)
-  const today = toUTCDay(new Date())
-  return Math.max(0, Math.round((end - today) / MS_PER_DAY))
-})
-
-const isActive = computed(() => {
-  if (!period.value) return false
-  const today = toUTCDay(new Date())
-  return today >= toUTCDay(period.value.startDate) && today <= toUTCDay(period.value.endDate)
-})
-
-const isFuture = computed(() => {
-  if (!period.value) return false
-  return toUTCDay(new Date()) < toUTCDay(period.value.startDate)
-})
-
-const earnedSoFar = computed(() => dailyBudget.value * daysPassed.value)
-
-const spentSoFar = computed(() => {
-  if (!period.value) return 0
-  return period.value.expenses.reduce((sum, exp) => sum + Number(exp.amount), 0)
-})
-
-const spentToday = computed(() => {
-  if (!period.value) return 0
-  const today = toUTCDay(new Date())
-  return period.value.expenses
-    .filter((exp) => toUTCDay(exp.date) === today)
-    .reduce((sum, exp) => sum + Number(exp.amount), 0)
-})
-
-const currentBalance = computed(() => earnedSoFar.value - spentSoFar.value)
+const isPending = (exp: Expense) => typeof exp.id === 'string' && exp.id.startsWith('local-')
 
 const sortedExpenses = computed(() => {
   if (!period.value) return []
-  return [...period.value.expenses].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  )
+  return [...period.value.expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 })
 
 const fetchPeriod = async () => {
   try {
     loading.value = true
     error.value = ''
-    const { data } = await getPeriod(periodId.value)
+    const { data } = periodId.value ? await getPeriod(periodId.value) : await getCurrentPeriod()
     period.value = data
   } catch (err: any) {
     if (err.response?.status === 404) {
-      error.value = 'Период не найден'
+      error.value = periodId.value ? 'Период не найден' : 'Нет активного периода. Создайте новый!'
     } else {
       error.value = 'Ошибка загрузки данных'
     }
@@ -193,8 +148,6 @@ const handleAddExpense = async (amount: number, date: string) => {
   }
 }
 
-const isPending = (exp: Expense) => typeof exp.id === 'string' && exp.id.startsWith('local-')
-
 const handleDeleteExpense = async (expenseId: number | string) => {
   if (!period.value) return
   if (!confirm('Удалить эту трату?')) return
@@ -211,33 +164,23 @@ const handleDeletePeriod = async () => {
   if (!confirm('Удалить этот период? Все траты периода будут потеряны.')) return
   try {
     await deletePeriod(period.value.id)
-    router.push('/periods')
+    if (periodId.value) {
+      router.push('/periods')
+    } else {
+      period.value = null
+      error.value = 'Нет активного периода. Создайте новый!'
+    }
   } catch (err) {
     alert('Не удалось удалить период.')
   }
 }
 
-const goBack = () => router.push('/periods')
+const goToNewPeriod = () => router.push('/new-period')
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    minimumFractionDigits: 0,
-  }).format(value)
+const formatCurrency = pm.formatCurrency
+const formatDate = pm.formatDate
+const formatDateRange = (start: string, end: string) => pm.formatDateRange(start, end)
 
-const formatDateRange = (start: string, end: string) => {
-  const s = new Date(start)
-  const e = new Date(end)
-  const fmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
-  return `${fmt.format(s)} — ${fmt.format(e)}`
-}
-
-const formatDate = (d: string) =>
-  new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d))
-
-// после фоновой синхронизации офлайн-очереди (App.vue) перечитываем данные,
-// чтобы временные id и суммы поменялись на реальные без перехода на страницу
 onMounted(() => {
   fetchPeriod()
   window.addEventListener('offline-sync-complete', fetchPeriod)
@@ -245,6 +188,9 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('offline-sync-complete', fetchPeriod)
 })
+
+// переход /periods/8 -> /periods/9 переиспользует тот же компонент — перечитать данные
+watch(() => route.params.id, fetchPeriod)
 </script>
 
 <style scoped>
@@ -327,6 +273,13 @@ onUnmounted(() => {
   box-shadow: 0 8px 24px rgba(155, 107, 255, 0.08);
 }
 
+.stat-card.highlight {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+    var(--gradient-rainbow) border-box;
+}
+
 .stat-label {
   font-size: 0.875rem;
   color: var(--text-secondary);
@@ -340,6 +293,10 @@ onUnmounted(() => {
 
 .stat-value.negative {
   color: var(--danger);
+}
+
+.stat-value.positive {
+  color: var(--success);
 }
 
 .stat-value.small {

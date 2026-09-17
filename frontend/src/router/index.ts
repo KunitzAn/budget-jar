@@ -5,18 +5,19 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: () => import('../pages/Login.vue'),
+    meta: { hideTabBar: true },
   },
   {
     path: '/',
     name: 'CurrentPeriod',
-    component: () => import('../pages/CurrentPeriod.vue'),
+    component: () => import('../pages/PeriodView.vue'),
     meta: { requiresAuth: true },
   },
   {
     path: '/new-period',
     name: 'NewPeriod',
     component: () => import('../pages/NewPeriod.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, hideTabBar: true },
   },
   {
     path: '/periods',
@@ -27,7 +28,13 @@ const routes = [
   {
     path: '/periods/:id',
     name: 'PeriodDetail',
-    component: () => import('../pages/PeriodDetail.vue'),
+    component: () => import('../pages/PeriodView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('../pages/Settings.vue'),
     meta: { requiresAuth: true },
   },
 ]

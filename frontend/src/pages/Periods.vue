@@ -4,7 +4,6 @@
       <h1>Budget <em>Jar</em></h1>
       <div class="header-actions">
         <button @click="goToNewPeriod" class="btn-primary">+ Новый период</button>
-        <button @click="goBack" class="btn-secondary">← Назад</button>
       </div>
     </header>
 
@@ -89,6 +88,7 @@ import { useRouter } from 'vue-router'
 import { getPeriods, deletePeriod } from '../api/periods'
 import { getStats } from '../api/stats'
 import type { Period, Stats } from '../types'
+import * as pm from '../lib/periodMath'
 
 const router = useRouter()
 const loading = ref(true)
@@ -112,44 +112,10 @@ const fetchPeriods = async () => {
   }
 }
 
-const spent = (p: Period) => p.expenses.reduce((sum, e) => sum + Number(e.amount), 0)
-
-const balance = (p: Period) => Number(p.totalSum) - spent(p)
-
-const MS_PER_DAY = 1000 * 60 * 60 * 24
-const MSK_OFFSET_MS = 3 * 60 * 60 * 1000 // МСК = UTC+3
-
-// округляем момент до «дня» по московскому времени
-// (новый день наступает в 00:00 МСК, а не 00:00 UTC)
-const toUTCDay = (d: string | Date) => {
-  const t = new Date(d).getTime() + MSK_OFFSET_MS
-  const dt = new Date(t)
-  return Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate())
-}
-
-const totalDays = (p: Period) =>
-  Math.round((toUTCDay(p.endDate) - toUTCDay(p.startDate)) / MS_PER_DAY) + 1
-
-const daysPassed = (p: Period) => {
-  const days = totalDays(p)
-  const start = toUTCDay(p.startDate)
-  const today = toUTCDay(new Date())
-  const passed = Math.round((today - start) / MS_PER_DAY) + 1
-  return Math.max(0, Math.min(passed, days))
-}
-
-const earnedSoFar = (p: Period) => {
-  const days = totalDays(p)
-  if (days <= 0) return 0
-  return (Number(p.totalSum) / days) * daysPassed(p)
-}
-
-const currentBalance = (p: Period) => earnedSoFar(p) - spent(p)
-
-const isActive = (p: Period) => {
-  const now = Date.now()
-  return new Date(p.startDate).getTime() <= now && new Date(p.endDate).getTime() >= now
-}
+const spent = pm.spentSoFar
+const balance = pm.remainingIfNoMoreSpending
+const currentBalance = pm.currentBalance
+const isActive = pm.isActive
 
 // сумма, которая будет накоплена ко всем периодам, если по текущему
 // периоду больше ничего не тратить (включая ещё не начавшиеся периоды)
@@ -190,22 +156,10 @@ const handleDelete = async (id: number) => {
   }
 }
 
-const goBack = () => router.push('/')
 const goToNewPeriod = () => router.push('/new-period')
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    minimumFractionDigits: 0,
-  }).format(value)
-
-const formatDateRange = (start: string, end: string) => {
-  const s = new Date(start)
-  const e = new Date(end)
-  const fmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
-  return `${fmt.format(s)} — ${fmt.format(e)}`
-}
+const formatCurrency = pm.formatCurrency
+const formatDateRange = (start: string, end: string) => pm.formatDateRange(start, end)
 
 onMounted(() => {
   fetchPeriods()

@@ -1,18 +1,24 @@
 <template>
-  <div id="app">
+  <div id="app" :class="{ 'has-tabbar': showTabBar }">
     <div v-if="!isOnline" class="offline-banner">
       Офлайн — изменения синхронизируются при подключении
     </div>
     <router-view />
+    <TabBar v-if="showTabBar" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useOnlineStatus } from './composables/useOnlineStatus'
 import { flushQueue } from './lib/offlineQueue'
+import TabBar from './components/TabBar.vue'
 
+const route = useRoute()
 const { isOnline } = useOnlineStatus()
+
+const showTabBar = computed(() => !route.meta.hideTabBar)
 
 const syncAndNotify = async () => {
   await flushQueue()
@@ -36,6 +42,10 @@ body {
 
 #app {
   min-height: 100vh;
+}
+
+#app.has-tabbar {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
 }
 
 .offline-banner {
