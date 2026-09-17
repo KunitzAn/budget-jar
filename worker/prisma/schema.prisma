@@ -10,11 +10,29 @@ datasource db {
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  telegramId BigInt   @unique
-  username   String?
-  createdAt  DateTime @default(now())
-  periods    Period[]
+  id          Int          @id @default(autoincrement())
+  telegramId  BigInt       @unique
+  username    String?
+  createdAt   DateTime     @default(now())
+  periods     Period[]
+  paydayRules PaydayRule[]
+}
+
+// История правил зарплатного месяца. Каждое правило действует с effectiveFrom
+// (конкретная дата-граница) до effectiveFrom следующего правила (если есть).
+// При сохранении нового правила все более поздние (effectiveFrom >=) удаляются —
+// так работает применение "задним числом" и пересчёт вперёд от выбранной даты.
+model PaydayRule {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String // 'DAY_OF_MONTH' | 'FIRST_WEEKDAY'
+  dayOfMonth    Int? // для DAY_OF_MONTH: 1-31 (31 в феврале = последний день месяца)
+  weekday       Int? // для FIRST_WEEKDAY: 0=воскресенье..6=суббота
+  effectiveFrom DateTime // граница, с которой действует это правило
+  createdAt     DateTime @default(now())
+
+  @@index([userId, effectiveFrom])
 }
 
 model Period {

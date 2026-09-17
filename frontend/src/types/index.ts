@@ -23,6 +23,15 @@ export interface Stats {
   periods: Period[]
 }
 
+export interface PaydayRule {
+  id: number
+  type: 'DAY_OF_MONTH' | 'FIRST_WEEKDAY'
+  dayOfMonth: number | null
+  // 0=воскресенье..6=суббота (JS Date.getUTCDay())
+  weekday: number | null
+  effectiveFrom: string
+}
+
 export interface TelegramUser {
   id: number
   first_name: string
