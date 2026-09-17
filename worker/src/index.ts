@@ -3,7 +3,6 @@ import { cors } from 'hono/cors'
 import authRoutes from './routes/auth'
 import periodsRoutes from './routes/periods'
 import expensesRoutes from './routes/expenses'
-import statsRoutes from './routes/stats'
 import settingsRoutes from './routes/settings'
 import type { Bindings, Variables } from './types'
 
@@ -28,7 +27,6 @@ app.get('/health', (c) => c.json({ status: 'ok' }))
 app.route('/auth', authRoutes)
 app.route('/periods', periodsRoutes)
 app.route('/', expensesRoutes)
-app.route('/stats', statsRoutes)
 app.route('/settings', settingsRoutes)
 
 export default app

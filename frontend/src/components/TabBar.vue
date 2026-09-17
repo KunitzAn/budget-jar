@@ -6,6 +6,9 @@
     <router-link to="/periods" class="tab-item" :class="{ active: isUnder('/periods') }">
       <span class="tab-label">Периоды</span>
     </router-link>
+    <router-link to="/stats" class="tab-item" :class="{ active: isUnder('/stats') }">
+      <span class="tab-label">Статистика</span>
+    </router-link>
     <router-link to="/settings" class="tab-item" :class="{ active: isUnder('/settings') }">
       <span class="tab-label">Настройки</span>
     </router-link>

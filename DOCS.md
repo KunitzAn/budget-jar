@@ -71,7 +71,7 @@ budget-jar/
 │   │   │   ├── auth.ts      # POST /auth/telegram
 │   │   │   ├── periods.ts   # CRUD периодов
 │   │   │   ├── expenses.ts  # Добавление/удаление трат
-│   │   │   └── stats.ts     # Сводная статистика
+│   │   │   └── settings.ts  # История правил зарплатного месяца
 │   │   ├── lib/
 │   │   │   ├── prisma.ts    # Prisma Client (adapter-neon, runtime = workerd)
 │   │   │   ├── jwt.ts       # sign/verify JWT через jose
@@ -95,22 +95,30 @@ budget-jar/
 │   │   ├── api/
 │   │   │   ├── auth.ts      # loginWithTelegram, logout
 │   │   │   ├── periods.ts   # getCurrentPeriod, getPeriods, createPeriod, deletePeriod
-│   │   │   ├── expenses.ts  # addExpense, deleteExpense
-│   │   │   └── stats.ts     # getStats
+│   │   │   ├── expenses.ts  # addExpense, deleteExpense (офлайн-очередь)
+│   │   │   └── settings.ts  # getPaydayRules, savePaydayRule
 │   │   ├── pages/
-│   │   │   ├── Login.vue         # Страница входа (Telegram Widget)
-│   │   │   ├── CurrentPeriod.vue # Главная — активный период
-│   │   │   ├── NewPeriod.vue     # Создание нового периода
-│   │   │   ├── Periods.vue       # Список периодов + сводная статистика
-│   │   │   └── PeriodDetail.vue  # Детальная страница периода
+│   │   │   ├── Login.vue      # Страница входа (Telegram Widget)
+│   │   │   ├── PeriodView.vue # Экран периода — и "/" (текущий), и "/periods/:id"
+│   │   │   ├── NewPeriod.vue  # Создание нового периода
+│   │   │   ├── Periods.vue    # Список периодов
+│   │   │   ├── Stats.vue      # Статистика: по периодам / по зарплатным месяцам
+│   │   │   └── Settings.vue   # Зарплатный месяц, выход
 │   │   ├── components/
-│   │   │   ├── StoneJar.vue      # SVG-банка с камушками
-│   │   │   ├── ExpenseForm.vue   # Форма добавления траты
-│   │   │   └── PeriodPicker.vue  # Выбор дат периода
+│   │   │   ├── StoneJar.vue       # SVG-банка с камушками
+│   │   │   ├── ExpenseForm.vue    # Форма добавления траты
+│   │   │   ├── PeriodPicker.vue   # Выбор дат периода
+│   │   │   ├── TabBar.vue         # Нижняя навигация
+│   │   │   └── StatsBarChart.vue  # SVG-столбики для статистики
 │   │   ├── types/
 │   │   │   └── index.ts     # TypeScript-интерфейсы
 │   │   └── lib/
-│   │       └── api.ts       # axios instance с Authorization header
+│   │       ├── api.ts          # axios instance + офлайн-кэш GET-запросов
+│   │       ├── periodMath.ts   # Расчёты периода (дни по МСК, баланс, остаток)
+│   │       ├── salaryMonths.ts # Границы зарплатных месяцев по истории правил
+│   │       ├── stats.ts        # Точки статистики по периодам/месяцам
+│   │       ├── offlineCache.ts # Оптимистичные обновления localStorage-кэша
+│   │       └── offlineQueue.ts # Очередь несинканных офлайн-мутаций
 │   └── package.json
 │
 ├── docker-compose.yml       # УСТАРЕЛО — не используется, оставлен как архив
@@ -156,6 +164,23 @@ budget-jar/
 Индекс: `(periodId, date)`.
 
 Удаление каскадное: удаление User → удаляет Period → удаляет Expense.
+
+#### `PaydayRule`
+История правил зарплатного месяца. Действует с `effectiveFrom` до `effectiveFrom` следующего правила (если есть).
+
+| Поле            | Тип      | Описание                                          |
+|------------------|----------|----------------------------------------------------|
+| `id`             | Int PK   | Автоинкремент                                     |
+| `userId`         | Int FK   | Ссылка на User                                    |
+| `type`           | String   | `DAY_OF_MONTH` \| `FIRST_WEEKDAY`                 |
+| `dayOfMonth`     | Int?     | 1–31 (для `DAY_OF_MONTH`; 31 в феврале → последний день) |
+| `weekday`        | Int?     | 0=воскресенье..6=суббота (для `FIRST_WEEKDAY`)    |
+| `effectiveFrom`  | DateTime | Дата, с которой действует правило                 |
+| `createdAt`      | DateTime | Дата создания записи                              |
+
+Выходные (сб/вс) всегда сдвигаются на предыдущую пятницу. Сохранение нового правила удаляет всю историю с `effectiveFrom >=` выбранной даты и позже — так работает применение «задним числом».
+
+Индекс: `(userId, effectiveFrom)`.
 
 ---
 
@@ -265,23 +290,30 @@ Authorization: Bearer <JWT>
 
 ---
 
-### Статистика — `/stats`
+### Настройки — `/settings`
 
-#### `GET /stats`
-Сводная статистика по всем периодам.
+Статистика (сэкономлено/потрачено, по периодам и по зарплатным месяцам) считается на клиенте из уже загруженных `/periods` — отдельного бэкенд-эндпоинта для неё нет, поэтому работает и офлайн.
 
-**Ответ:**
+#### `GET /settings/payday-rules`
+Вся история правил зарплатного месяца пользователя, отсортированная по `effectiveFrom asc`.
+
+#### `POST /settings/payday-rules`
+Сохранить новое правило.
+
+**Тело:**
 ```json
 {
-  "totalIncome": 150000,
-  "totalExpenses": 87500,
-  "balance": 62500
+  "type": "DAY_OF_MONTH",
+  "dayOfMonth": 10,
+  "effectiveFrom": "2026-09-10T00:00:00.000Z"
 }
 ```
+Для `type: "FIRST_WEEKDAY"` вместо `dayOfMonth` передаётся `weekday` (0–6).
 
-- `totalIncome` — сумма `totalSum` всех периодов;
-- `totalExpenses` — сумма всех трат по всем периодам;
-- `balance` — разница.
+**Валидация:** `dayOfMonth` 1–31 или `weekday` 0–6 в зависимости от `type`.
+**Ответ `201`:** `{ "rule": {...}, "rules": [...] }` — созданное правило и обновлённая история.
+
+Удаляет (заменяет) все правила пользователя с `effectiveFrom >=` переданной даты.
 
 ---
 
@@ -291,15 +323,17 @@ Authorization: Bearer <JWT>
 
 ### Маршруты
 
-| Путь            | Компонент         | Auth | Описание                         |
-|-----------------|-------------------|------|----------------------------------|
-| `/login`        | `Login.vue`       | нет  | Вход через Telegram              |
-| `/`             | `CurrentPeriod.vue` | да | Активный период                  |
-| `/new-period`   | `NewPeriod.vue`   | да   | Форма создания периода           |
-| `/periods`      | `Periods.vue`     | да   | Список периодов + сводная статистика |
-| `/periods/:id`  | `PeriodDetail.vue`| да   | Детальная страница периода       |
+| Путь            | Компонент         | Auth | TabBar | Описание                         |
+|-----------------|-------------------|------|--------|-----------------------------------|
+| `/login`        | `Login.vue`       | нет  | нет    | Вход через Telegram              |
+| `/`             | `PeriodView.vue`  | да   | да     | Активный период (список трат, «Останется, если не тратить») |
+| `/periods/:id`  | `PeriodView.vue`  | да   | да     | Тот же экран для конкретного периода |
+| `/new-period`   | `NewPeriod.vue`   | да   | нет    | Форма создания периода (офлайн недоступна) |
+| `/periods`      | `Periods.vue`     | да   | да     | Список периодов                  |
+| `/stats`        | `Stats.vue`       | да   | да     | Статистика по периодам/зарплатным месяцам |
+| `/settings`     | `Settings.vue`    | да   | да     | Зарплатный месяц, выход          |
 
-Guard в роутере: если нет `token` в `localStorage` и маршрут требует авторизации — редирект на `/login`.
+Guard в роутере: если нет `token` в `localStorage` и маршрут требует авторизации — редирект на `/login`. `TabBar` скрывается через `meta: { hideTabBar: true }`.
 
 ### Ключевые компоненты
 
@@ -338,18 +372,21 @@ interface Period {
 }
 
 interface Expense {
-  id: number
+  // строковый id вида "local-..." — трата, добавленная офлайн и ещё
+  // не отправленная на сервер (см. lib/offlineQueue.ts)
+  id: number | string
   amount: number
   date: string
   note?: string
   periodId: number
 }
 
-interface Stats {
-  totalIncome: number
-  totalExpenses: number
-  balance: number
-  periods: Period[]
+interface PaydayRule {
+  id: number
+  type: 'DAY_OF_MONTH' | 'FIRST_WEEKDAY'
+  dayOfMonth: number | null
+  weekday: number | null // 0=воскресенье..6=суббота
+  effectiveFrom: string
 }
 
 interface TelegramUser {

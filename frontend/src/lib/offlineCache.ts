@@ -1,4 +1,4 @@
-import type { Expense, Period, Stats } from '../types'
+import type { Expense, Period } from '../types'
 
 const PREFIX = 'cache:'
 
@@ -50,35 +50,10 @@ export function applyOptimisticExpenseAdd(periodId: number, expense: Expense) {
       list.map((p) => (p.id === periodId ? withExpenses(p, (es) => [...es, expense]) : p)),
     )
   }
-
-  const stats = getCache<Stats>('/stats')
-  if (stats) {
-    const amount = Number(expense.amount)
-    setCache('/stats', {
-      ...stats,
-      totalExpenses: Number(stats.totalExpenses) + amount,
-      balance: Number(stats.balance) - amount,
-    })
-  }
 }
 
-function findExpenseAmount(periodId: number, expenseId: number | string): number {
-  const sources = [
-    getCache<Period>(`/periods/${periodId}`),
-    getCache<Period>('/periods/current'),
-    getCache<Period[]>('/periods')?.find((p) => p.id === periodId),
-  ]
-  for (const source of sources) {
-    const found = source?.expenses.find((e) => e.id === expenseId)
-    if (found) return Number(found.amount)
-  }
-  return 0
-}
-
-/** Убирает трату из всех кэш-слотов и корректирует статистику. */
+/** Убирает трату из всех кэш-слотов. */
 export function applyOptimisticExpenseRemove(periodId: number, expenseId: number | string) {
-  const amount = findExpenseAmount(periodId, expenseId)
-
   const current = getCache<Period>('/periods/current')
   if (current && current.id === periodId) {
     setCache('/periods/current', withExpenses(current, (es) => es.filter((e) => e.id !== expenseId)))
@@ -96,17 +71,6 @@ export function applyOptimisticExpenseRemove(periodId: number, expenseId: number
       list.map((p) => (p.id === periodId ? withExpenses(p, (es) => es.filter((e) => e.id !== expenseId)) : p)),
     )
   }
-
-  if (amount > 0) {
-    const stats = getCache<Stats>('/stats')
-    if (stats) {
-      setCache('/stats', {
-        ...stats,
-        totalExpenses: Number(stats.totalExpenses) - amount,
-        balance: Number(stats.balance) + amount,
-      })
-    }
-  }
 }
 
 /** Заменяет временный (local-...) id траты на реальный после синхронизации. */
@@ -123,36 +87,13 @@ export function replaceOptimisticExpenseId(periodId: number, tempId: string, rea
   if (list) setCache('/periods', list.map((p) => (p.id === periodId ? withExpenses(p, replace) : p)))
 }
 
-/** Убирает период из всех кэш-слотов и корректирует статистику. */
+/** Убирает период из всех кэш-слотов. */
 export function applyOptimisticPeriodRemove(periodId: number) {
   const list = getCache<Period[]>('/periods')
   if (list) setCache('/periods', list.filter((p) => p.id !== periodId))
 
-  let removedPeriod: Period | undefined
-
   const current = getCache<Period>('/periods/current')
-  if (current && current.id === periodId) {
-    removedPeriod = current
-    removeCache('/periods/current')
-  }
+  if (current && current.id === periodId) removeCache('/periods/current')
 
-  const byId = getCache<Period>(`/periods/${periodId}`)
-  if (byId) {
-    removedPeriod = removedPeriod ?? byId
-    removeCache(`/periods/${periodId}`)
-  }
-
-  if (!removedPeriod) return
-
-  const stats = getCache<Stats>('/stats')
-  if (stats) {
-    const spent = removedPeriod.expenses.reduce((sum, e) => sum + Number(e.amount), 0)
-    const totalSum = Number(removedPeriod.totalSum)
-    setCache('/stats', {
-      ...stats,
-      totalIncome: Number(stats.totalIncome) - totalSum,
-      totalExpenses: Number(stats.totalExpenses) - spent,
-      balance: Number(stats.balance) - (totalSum - spent),
-    })
-  }
+  removeCache(`/periods/${periodId}`)
 }

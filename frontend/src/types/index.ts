@@ -16,13 +16,6 @@ export interface Expense {
   periodId: number
 }
 
-export interface Stats {
-  totalIncome: number
-  totalExpenses: number
-  balance: number
-  periods: Period[]
-}
-
 export interface PaydayRule {
   id: number
   type: 'DAY_OF_MONTH' | 'FIRST_WEEKDAY'

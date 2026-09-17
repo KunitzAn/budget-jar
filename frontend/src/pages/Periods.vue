@@ -19,33 +19,6 @@
         <h2>Список периодов</h2>
       </div>
 
-      <div v-if="periods.length > 0" class="summary-range">
-        Статистика за период: {{ formatDateRange(overallRange.start, overallRange.end) }}
-      </div>
-
-      <div class="summary-cards">
-        <div class="summary-card">
-          <span class="card-label">Общий доход</span>
-          <span class="card-value positive">{{ formatCurrency(stats?.totalIncome || 0) }}</span>
-        </div>
-
-        <div class="summary-card">
-          <span class="card-label">Общие траты</span>
-          <span class="card-value negative">{{ formatCurrency(stats?.totalExpenses || 0) }}</span>
-        </div>
-
-        <div class="summary-card highlight">
-          <span class="card-label">Итоговый баланс</span>
-          <span class="card-value" :class="overallBalance >= 0 ? 'positive' : 'negative'">
-            {{ formatCurrency(overallBalance) }}
-          </span>
-          <label class="balance-toggle">
-            <input type="checkbox" v-model="onlyAccrued" />
-            Только накопленное по сегодня
-          </label>
-        </div>
-      </div>
-
       <div v-if="periods.length === 0" class="empty">
         <p>Пока нет ни одного периода.</p>
         <button @click="goToNewPeriod" class="btn-primary">Создать период</button>
@@ -83,28 +56,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPeriods, deletePeriod } from '../api/periods'
-import { getStats } from '../api/stats'
-import type { Period, Stats } from '../types'
+import type { Period } from '../types'
 import * as pm from '../lib/periodMath'
 
 const router = useRouter()
 const loading = ref(true)
 const error = ref('')
 const periods = ref<Period[]>([])
-const stats = ref<Stats | null>(null)
 const deletingId = ref<number | null>(null)
-const onlyAccrued = ref(false)
 
 const fetchPeriods = async () => {
   try {
     loading.value = true
     error.value = ''
-    const [periodsRes, statsRes] = await Promise.all([getPeriods(), getStats()])
-    periods.value = periodsRes.data
-    stats.value = statsRes.data
+    const { data } = await getPeriods()
+    periods.value = data
   } catch (err) {
     error.value = 'Ошибка загрузки периодов'
   } finally {
@@ -117,28 +86,6 @@ const balance = pm.remainingIfNoMoreSpending
 const currentBalance = pm.currentBalance
 const isActive = pm.isActive
 
-// сумма, которая будет накоплена ко всем периодам, если по текущему
-// периоду больше ничего не тратить (включая ещё не начавшиеся периоды)
-const projectedBalance = computed(() => stats.value?.balance || 0)
-
-// то, что реально накоплено на сегодня: по завершённым и активному
-// периоду — earnedSoFar минус потрачено, будущие периоды не считаются
-const accruedBalance = computed(() =>
-  periods.value.reduce((sum, p) => sum + currentBalance(p), 0)
-)
-
-const overallBalance = computed(() => (onlyAccrued.value ? accruedBalance.value : projectedBalance.value))
-
-const overallRange = computed(() => {
-  if (periods.value.length === 0) return { start: '', end: '' }
-  const start = periods.value.reduce((min, p) => (p.startDate < min ? p.startDate : min), periods.value[0].startDate)
-  const active = periods.value.find(isActive)
-  const end = active
-    ? active.endDate
-    : periods.value.reduce((max, p) => (p.endDate > max ? p.endDate : max), periods.value[0].endDate)
-  return { start, end }
-})
-
 const openPeriod = (id: number) => router.push(`/periods/${id}`)
 
 const handleDelete = async (id: number) => {
@@ -147,8 +94,6 @@ const handleDelete = async (id: number) => {
     deletingId.value = id
     await deletePeriod(id)
     periods.value = periods.value.filter((p) => p.id !== id)
-    const { data } = await getStats()
-    stats.value = data
   } catch (err) {
     alert('Не удалось удалить период.')
   } finally {
@@ -206,81 +151,6 @@ onUnmounted(() => {
 .header-actions {
   display: flex;
   gap: 0.75rem;
-}
-
-.summary-range {
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 0.9375rem;
-  margin-bottom: 1.25rem;
-}
-
-.summary-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 3rem;
-}
-
-.balance-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  margin-top: 0.25rem;
-}
-
-.balance-toggle input {
-  accent-color: var(--accent-purple);
-  width: 1rem;
-  height: 1rem;
-  cursor: pointer;
-}
-
-.summary-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--card-border);
-  border-radius: 20px;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  transition: transform 0.2s;
-  box-shadow: 0 8px 24px rgba(155, 107, 255, 0.08);
-}
-
-.summary-card:hover {
-  transform: translateY(-3px);
-}
-
-.summary-card.highlight {
-  border: 2px solid transparent;
-  background:
-    linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
-    var(--gradient-rainbow) border-box;
-}
-
-.card-label {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.card-value {
-  font-size: 2rem;
-  font-weight: 600;
-}
-
-.card-value.positive {
-  color: var(--success);
-}
-
-.card-value.negative {
-  color: var(--danger);
 }
 
 .content {
