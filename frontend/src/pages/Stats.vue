@@ -134,8 +134,10 @@ const points = computed<stats.StatPoint[]>(() => {
   const starts = periods.value.map((p) => new Date(p.startDate).getTime())
   const ends = periods.value.map((p) => new Date(p.endDate).getTime())
   const rangeStart = new Date(Math.min(...starts))
-  const rangeEndCandidate = new Date(Math.max(...ends, Date.now() + 60 * 24 * 60 * 60 * 1000))
-  return stats.monthStatPoints(periods.value, rules.value, rangeStart, rangeEndCandidate)
+  // до сегодня — или до конца последнего периода, если он в будущем;
+  // без искусственного запаса вперёд, иначе показываются пустые ненаступившие месяцы
+  const rangeEnd = new Date(Math.max(...ends, Date.now()))
+  return stats.monthStatPoints(periods.value, rules.value, rangeStart, rangeEnd)
 })
 
 const reversedPoints = computed(() => [...points.value].reverse())

@@ -22,11 +22,16 @@ periodsRoutes.get('/', async (c) => {
 periodsRoutes.get('/current', async (c) => {
   const prisma = createPrismaClient(c.env.DATABASE_URL)
   const now = new Date()
+  // endDate хранится как полночь UTC последнего дня периода ("весь этот день
+  // включительно") — сравнение с точной меткой now даёт false уже в 00:00 UTC
+  // (3 часа ночи по МСК), хотя период должен оставаться активным весь день.
+  // Сравниваем с началом сегодняшних суток UTC, а не с точным моментом.
+  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   const period = await prisma.period.findFirst({
     where: {
       userId: c.get('userId'),
       startDate: { lte: now },
-      endDate: { gte: now },
+      endDate: { gte: startOfToday },
     },
     include: { expenses: true },
   })
