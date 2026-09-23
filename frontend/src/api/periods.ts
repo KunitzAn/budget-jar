@@ -16,6 +16,10 @@ export const createPeriod = (body: {
   totalSum: number
 }) => api.post<Period>('/periods', body)
 
+// Изменение дат — та же причина, что и для createPeriod: офлайн не поддерживаем.
+export const updatePeriodDates = (id: number, body: { startDate: string; endDate: string }) =>
+  api.patch<Period>(`/periods/${id}`, body)
+
 export const deletePeriod = async (id: number): Promise<void> => {
   try {
     await api.delete(`/periods/${id}`)

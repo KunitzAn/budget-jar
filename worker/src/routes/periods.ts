@@ -112,6 +112,54 @@ periodsRoutes.post('/', async (c) => {
   return c.json(period, 201)
 })
 
+// Изменить даты периода
+periodsRoutes.patch('/:id', async (c) => {
+  const prisma = createPrismaClient(c.env.DATABASE_URL)
+  const periodId = parseInt(c.req.param('id'))
+  const { startDate, endDate } = await c.req.json<{ startDate: string; endDate: string }>()
+
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+
+  if (start >= end) {
+    return c.json({ error: 'End date must be after start date' }, 400)
+  }
+
+  const userId = c.get('userId')
+
+  const existing = await prisma.period.findFirst({
+    where: { id: periodId, userId },
+  })
+
+  if (!existing) {
+    return c.json({ error: 'Period not found' }, 404)
+  }
+
+  const overlapping = await prisma.period.findFirst({
+    where: {
+      userId,
+      id: { not: periodId },
+      startDate: { lte: end },
+      endDate: { gte: start },
+    },
+  })
+
+  if (overlapping) {
+    return c.json(
+      { error: 'Period dates overlap with existing period', conflictingPeriodId: overlapping.id },
+      409
+    )
+  }
+
+  const period = await prisma.period.update({
+    where: { id: periodId },
+    data: { startDate: start, endDate: end },
+    include: { expenses: true },
+  })
+
+  return c.json(period)
+})
+
 // Удалить период
 periodsRoutes.delete('/:id', async (c) => {
   const prisma = createPrismaClient(c.env.DATABASE_URL)

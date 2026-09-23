@@ -21,6 +21,22 @@
           <template v-else-if="future">Период ещё не начался</template>
           <template v-else>Период завершён</template>
         </p>
+
+        <button v-if="!editingDates" @click="startEditDates" class="edit-dates-link">
+          Изменить даты
+        </button>
+
+        <form v-else @submit.prevent="handleSaveDates" class="edit-dates-form">
+          <input v-model="editStart" type="date" class="input" />
+          <input v-model="editEnd" type="date" class="input" />
+          <div class="edit-dates-actions">
+            <button type="submit" class="btn-secondary-sm" :disabled="!isOnline || savingDates">
+              {{ savingDates ? 'Сохранение...' : 'Сохранить' }}
+            </button>
+            <button type="button" @click="cancelEditDates" class="btn-secondary-sm">Отмена</button>
+          </div>
+          <p v-if="editDatesError" class="error-message">{{ editDatesError }}</p>
+        </form>
       </div>
 
       <StoneJar :current-balance="balance" :total-sum="Number(period.totalSum)" />
@@ -88,8 +104,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getCurrentPeriod, getPeriod, deletePeriod } from '../api/periods'
+import { getCurrentPeriod, getPeriod, deletePeriod, updatePeriodDates } from '../api/periods'
 import { addExpense, deleteExpense } from '../api/expenses'
+import { useOnlineStatus } from '../composables/useOnlineStatus'
 import StoneJar from '../components/StoneJar.vue'
 import ExpenseForm from '../components/ExpenseForm.vue'
 import type { Expense, Period } from '../types'
@@ -97,9 +114,16 @@ import * as pm from '../lib/periodMath'
 
 const route = useRoute()
 const router = useRouter()
+const { isOnline } = useOnlineStatus()
 const loading = ref(true)
 const error = ref('')
 const period = ref<Period | null>(null)
+
+const editingDates = ref(false)
+const editStart = ref('')
+const editEnd = ref('')
+const savingDates = ref(false)
+const editDatesError = ref('')
 
 // на "/" параметра нет — грузим текущий период; на "/periods/:id" — конкретный
 const periodId = computed(() => (route.params.id ? parseInt(route.params.id as string) : null))
@@ -172,6 +196,46 @@ const handleDeletePeriod = async () => {
     }
   } catch (err) {
     alert('Не удалось удалить период.')
+  }
+}
+
+const startEditDates = () => {
+  if (!period.value) return
+  editStart.value = period.value.startDate.slice(0, 10)
+  editEnd.value = period.value.endDate.slice(0, 10)
+  editDatesError.value = ''
+  editingDates.value = true
+}
+
+const cancelEditDates = () => {
+  editingDates.value = false
+  editDatesError.value = ''
+}
+
+const handleSaveDates = async () => {
+  if (!period.value) return
+  if (!isOnline.value) {
+    editDatesError.value = 'Нужно подключение к интернету, чтобы изменить даты'
+    return
+  }
+  editDatesError.value = ''
+  savingDates.value = true
+  try {
+    await updatePeriodDates(period.value.id, { startDate: editStart.value, endDate: editEnd.value })
+    editingDates.value = false
+    await fetchPeriod()
+  } catch (err: any) {
+    if (!err.response) {
+      editDatesError.value = 'Нужно подключение к интернету, чтобы изменить даты'
+    } else if (err.response?.status === 409) {
+      editDatesError.value = 'Период с такими датами уже существует. Выберите другие даты.'
+    } else if (err.response?.status === 400) {
+      editDatesError.value = 'Ошибка: конец периода должен быть позже начала'
+    } else {
+      editDatesError.value = 'Не удалось сохранить даты. Попробуйте снова.'
+    }
+  } finally {
+    savingDates.value = false
   }
 }
 
@@ -253,6 +317,58 @@ watch(() => route.params.id, fetchPeriod)
   margin: 0.75rem 0 0;
   color: var(--text-secondary);
   font-size: 1rem;
+}
+
+.edit-dates-link {
+  margin-top: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--accent-purple);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.edit-dates-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.edit-dates-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-secondary-sm {
+  padding: 0.5rem 1.25rem;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary-sm:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.btn-secondary-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: var(--danger);
+  font-size: 0.875rem;
+  margin: 0;
 }
 
 .stats-grid {
