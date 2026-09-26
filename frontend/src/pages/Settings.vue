@@ -74,6 +74,20 @@
         </form>
       </section>
 
+      <section class="section">
+        <h2>Офлайн-режим</h2>
+        <p class="offline-status">
+          Статус:
+          <strong :class="offlineReady ? 'ready' : 'loading'">
+            {{ offlineReady ? 'готов' : 'ещё загружается' }}
+          </strong>
+        </p>
+        <p v-if="!offlineReady" class="hint">
+          Подержите приложение открытым с интернетом, пока статус не сменится на «готов» —
+          до этого запуск без сети работать не будет.
+        </p>
+      </section>
+
       <div class="actions">
         <button @click="handleLogout" class="btn-danger">Выйти</button>
       </div>
@@ -214,6 +228,17 @@ watch(isOnline, (online) => {
   }
 })
 
+// Офлайн-копия готова, когда страницей управляет service worker — он
+// активируется, только скачав оболочку целиком. Пока не готова, выключать
+// интернет бесполезно: iOS пойдёт в сеть и покажет свою ошибку.
+const offlineReady = ref(false)
+if ('serviceWorker' in navigator) {
+  offlineReady.value = !!navigator.serviceWorker.controller
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    offlineReady.value = !!navigator.serviceWorker.controller
+  })
+}
+
 const describeRule = sm.describeRule
 const formatDate = pm.formatDate
 
@@ -309,6 +334,20 @@ onMounted(fetchRules)
   color: var(--text-primary);
   font-size: 0.9375rem;
   margin: 0;
+}
+
+.offline-status {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+.offline-status .ready {
+  color: var(--success);
+}
+
+.offline-status .loading {
+  color: var(--accent-orange);
 }
 
 .rule-since {

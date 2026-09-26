@@ -68,6 +68,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { formatCurrency } from '../lib/periodMath'
 
 const props = defineProps<{
   currentBalance: number
@@ -108,13 +109,6 @@ const dustParticles = computed(() => {
   }))
 })
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    minimumFractionDigits: 0,
-  }).format(value)
-}
 </script>
 
 <style scoped>

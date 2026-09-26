@@ -1,7 +1,14 @@
-// Генерирует dist/sw-manifest.json — полный список файлов текущей сборки
+// Генерирует dist/sw-manifest.json — список файлов оболочки текущей сборки
 // с версией (хэш от содержимого). service worker (public/sw.js) при install
-// скачивает ВСЕ эти файлы разом — не только то, что реально открывали, —
+// скачивает ВСЕ эти файлы разом — не только те, что реально открывали, —
 // поэтому офлайн работают все страницы, а не только уже посещённые.
+//
+// Сплэши и иконки в этот список НЕ попадают: их запрашивает система iOS при
+// «Добавить на экран Домой» (это и так происходит с сетью), а приложению в
+// работе они не нужны. Раньше они раздували офлайн-копию с ~210 КБ до ~1,3 МБ,
+// а cache.addAll атомарен: не скачалось всё — не сохранилось ничего. На
+// телефоне установка не успевала завершиться до закрытия приложения, и
+// офлайн-запуск уходил в сеть с белым экраном.
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
@@ -41,8 +48,14 @@ function walk(dir, base = '') {
 }
 
 const EXCLUDE = new Set(['sw.js', 'sw-manifest.json'])
+// картинки для системы iOS — не часть оболочки приложения, см. комментарий выше
+const EXCLUDE_DIRS = ['splash', 'icons']
 const files = walk(distDir).filter(
-  (f) => !EXCLUDE.has(f) && !f.endsWith('.map') && !path.basename(f).startsWith('.'),
+  (f) =>
+    !EXCLUDE.has(f) &&
+    !f.endsWith('.map') &&
+    !path.basename(f).startsWith('.') &&
+    !EXCLUDE_DIRS.includes(f.split(path.sep)[0]),
 )
 
 const hash = crypto.createHash('sha256')
