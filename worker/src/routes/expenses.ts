@@ -11,10 +11,11 @@ expensesRoutes.use('*', authMiddleware)
 expensesRoutes.post('/periods/:periodId/expenses', async (c) => {
   const prisma = createPrismaClient(c.env.DATABASE_URL)
   const periodId = parseInt(c.req.param('periodId'))
-  const { amount, date, note } = await c.req.json<{
+  const { amount, date, note, categoryId } = await c.req.json<{
     amount: number
     date?: string
     note?: string
+    categoryId?: number | null
   }>()
 
   if (amount <= 0) {
@@ -32,12 +33,22 @@ expensesRoutes.post('/periods/:periodId/expenses', async (c) => {
     return c.json({ error: 'Period not found' }, 404)
   }
 
+  if (categoryId != null) {
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, userId: c.get('userId') },
+    })
+    if (!category) {
+      return c.json({ error: 'Category not found' }, 404)
+    }
+  }
+
   const expense = await prisma.expense.create({
     data: {
       periodId,
       amount,
       date: date ? new Date(date) : new Date(),
       note,
+      categoryId: categoryId ?? null,
     },
   })
 

@@ -7,7 +7,7 @@ import {
   replaceOptimisticExpenseId,
 } from './offlineCache'
 
-type ExpenseBody = { amount: number; date?: string; note?: string }
+type ExpenseBody = { amount: number; date?: string; note?: string; categoryId?: number | null }
 
 type QueuedMutation = { id: string; createdAt: number } & (
   | { type: 'addExpense'; tempId: string; periodId: number; body: ExpenseBody }
@@ -53,6 +53,7 @@ export function enqueueAddExpense(periodId: number, body: ExpenseBody): Expense 
     amount: body.amount,
     date: body.date ?? new Date().toISOString(),
     note: body.note,
+    categoryId: body.categoryId ?? null,
   }
 
   const queue = getQueue()

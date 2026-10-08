@@ -75,6 +75,88 @@
       </section>
 
       <section class="section">
+        <h2>Категории трат</h2>
+
+        <p v-if="loadingCategories" class="hint">Загрузка...</p>
+        <p v-else-if="categories.length === 0" class="hint">
+          Пока нет ни одной категории. Трата без категории учитывается везде.
+        </p>
+
+        <div v-else class="category-list">
+          <div v-for="c in categories" :key="c.id" class="category-row">
+            <div class="category-head">
+              <span class="category-dot" :style="{ background: c.color }"></span>
+              <span class="category-name">{{ c.name }}</span>
+              <button
+                class="category-delete"
+                :disabled="!isOnline"
+                title="Удалить категорию"
+                aria-label="Удалить категорию"
+                @click="handleDeleteCategory(c)"
+              >
+                ×
+              </button>
+            </div>
+            <div class="category-flags">
+              <label class="category-flag">
+                <input
+                  type="checkbox"
+                  :checked="c.inStats"
+                  :disabled="!isOnline || savingCategoryId === c.id"
+                  @change="toggleFlag(c, 'inStats', ($event.target as HTMLInputElement).checked)"
+                />
+                в статистике
+              </label>
+              <label class="category-flag">
+                <input
+                  type="checkbox"
+                  :checked="c.inBalance"
+                  :disabled="!isOnline || savingCategoryId === c.id"
+                  @change="toggleFlag(c, 'inBalance', ($event.target as HTMLInputElement).checked)"
+                />
+                в банке
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <form class="category-form" @submit.prevent="handleCreateCategory">
+          <div class="form-group">
+            <label>Новая категория</label>
+            <input
+              v-model="newCategoryName"
+              type="text"
+              class="input"
+              placeholder="Например, Продукты"
+              maxlength="40"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Цвет</label>
+            <div class="palette">
+              <button
+                v-for="color in PALETTE"
+                :key="color"
+                type="button"
+                class="swatch"
+                :class="{ selected: newCategoryColor === color }"
+                :style="{ background: color }"
+                :aria-label="`Выбрать цвет ${color}`"
+                @click="newCategoryColor = color"
+              ></button>
+            </div>
+          </div>
+
+          <p v-if="categoryError" class="error-message">{{ categoryError }}</p>
+
+          <button type="submit" class="btn-primary" :disabled="!isOnline || creatingCategory || !newCategoryName.trim()">
+            {{ creatingCategory ? 'Добавление...' : 'Добавить категорию' }}
+          </button>
+        </form>
+      </section>
+
+      <section class="section">
         <h2>Офлайн-режим</h2>
         <p class="offline-status">
           Статус:
@@ -100,10 +182,11 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { logout } from '../api/auth'
 import { getPaydayRules, savePaydayRule } from '../api/settings'
+import { createCategory, deleteCategory, getCategories, updateCategory } from '../api/categories'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 import * as sm from '../lib/salaryMonths'
 import * as pm from '../lib/periodMath'
-import type { PaydayRule } from '../types'
+import type { Category, PaydayRule } from '../types'
 
 const router = useRouter()
 const { isOnline } = useOnlineStatus()
@@ -239,6 +322,97 @@ if ('serviceWorker' in navigator) {
   })
 }
 
+// фирменная палитра — те же цвета, что у пыльцы в банке
+const PALETTE = ['#ff6fa5', '#ffa15c', '#ffd54f', '#4fc3f7', '#9b6bff', '#7fe0d0']
+
+const categories = ref<Category[]>([])
+const loadingCategories = ref(true)
+const newCategoryName = ref('')
+const newCategoryColor = ref(PALETTE[0])
+const creatingCategory = ref(false)
+const savingCategoryId = ref<number | null>(null)
+const categoryError = ref('')
+
+const fetchCategories = async () => {
+  loadingCategories.value = true
+  try {
+    const { data } = await getCategories()
+    categories.value = data
+  } catch {
+    // офлайн без кэша — список пустой, форма и так недоступна без сети
+  } finally {
+    loadingCategories.value = false
+  }
+}
+
+const handleCreateCategory = async () => {
+  const name = newCategoryName.value.trim()
+  if (!name) return
+  if (!isOnline.value) {
+    categoryError.value = OFFLINE_MESSAGE
+    return
+  }
+
+  categoryError.value = ''
+  creatingCategory.value = true
+  try {
+    const { data } = await createCategory({
+      name,
+      color: newCategoryColor.value,
+      inStats: true,
+      inBalance: true,
+    })
+    categories.value = [...categories.value, data]
+    newCategoryName.value = ''
+  } catch (err: any) {
+    categoryError.value = !err.response
+      ? OFFLINE_MESSAGE
+      : err.response?.data?.error || 'Не удалось добавить категорию'
+  } finally {
+    creatingCategory.value = false
+  }
+}
+
+const toggleFlag = async (category: Category, flag: 'inStats' | 'inBalance', value: boolean) => {
+  if (!isOnline.value) {
+    categoryError.value = OFFLINE_MESSAGE
+    return
+  }
+
+  categoryError.value = ''
+  savingCategoryId.value = category.id
+  try {
+    const { data } = await updateCategory(category.id, { [flag]: value })
+    categories.value = categories.value.map((c) => (c.id === data.id ? data : c))
+  } catch (err: any) {
+    // чекбокс в DOM уже переключился — возвращаем список как есть, чтобы Vue перерисовал его обратно
+    categories.value = [...categories.value]
+    categoryError.value = !err.response
+      ? OFFLINE_MESSAGE
+      : err.response?.data?.error || 'Не удалось сохранить категорию'
+  } finally {
+    savingCategoryId.value = null
+  }
+}
+
+const handleDeleteCategory = async (category: Category) => {
+  if (!confirm(`Удалить категорию «${category.name}»? Траты останутся, но станут без категории.`)) return
+  if (!isOnline.value) {
+    categoryError.value = OFFLINE_MESSAGE
+    return
+  }
+
+  categoryError.value = ''
+  try {
+    await deleteCategory(category.id)
+    categories.value = categories.value.filter((c) => c.id !== category.id)
+  } catch (err: any) {
+    categoryError.value = !err.response
+      ? OFFLINE_MESSAGE
+      : err.response?.data?.error || 'Не удалось удалить категорию'
+  }
+}
+
 const describeRule = sm.describeRule
 const formatDate = pm.formatDate
 
@@ -247,7 +421,10 @@ const handleLogout = () => {
   router.push('/login')
 }
 
-onMounted(fetchRules)
+onMounted(() => {
+  fetchRules()
+  fetchCategories()
+})
 </script>
 
 <style scoped>
@@ -328,6 +505,120 @@ onMounted(fetchRules)
   color: var(--text-secondary);
   font-size: 0.9375rem;
   margin: 0;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.category-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.category-head {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.category-flags {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.category-dot {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.category-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: auto;
+}
+
+.category-flag {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.category-flag input {
+  accent-color: var(--accent-purple);
+  cursor: pointer;
+}
+
+.category-flag input:disabled {
+  cursor: not-allowed;
+}
+
+.category-delete {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.category-delete:hover:not(:disabled) {
+  background: var(--danger);
+  color: white;
+}
+
+.category-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.category-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.palette {
+  display: flex;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.swatch:hover {
+  transform: scale(1.1);
+}
+
+.swatch.selected {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 3px rgba(155, 107, 255, 0.2);
 }
 
 .current-rule {

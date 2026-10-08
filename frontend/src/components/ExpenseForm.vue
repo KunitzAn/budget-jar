@@ -13,6 +13,10 @@
       class="input input-date"
       :max="today"
     />
+    <select v-if="categories.length > 0" v-model="categoryId" class="input input-category">
+      <option :value="null">Без категории</option>
+      <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+    </select>
     <button @click="handleAdd" class="btn-primary" :disabled="!amount || amount <= 0">
       Добавить трату
     </button>
@@ -21,19 +25,24 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { Category } from '../types'
+
+defineProps<{ categories: Category[] }>()
 
 const emit = defineEmits<{
-  add: [amount: number, date: string]
+  add: [amount: number, date: string, categoryId: number | null]
 }>()
 
 const today = new Date().toISOString().slice(0, 10)
 
 const amount = ref<number | null>(null)
 const date = ref(today)
+// категорию не сбрасываем после добавления — подряд обычно вносят траты одного вида
+const categoryId = ref<number | null>(null)
 
 const handleAdd = () => {
   if (amount.value && amount.value > 0) {
-    emit('add', amount.value, date.value)
+    emit('add', amount.value, date.value, categoryId.value)
     amount.value = null
     date.value = today
   }
@@ -66,6 +75,12 @@ const handleAdd = () => {
 
 .input-date {
   width: 170px;
+}
+
+.input-category {
+  width: 180px;
+  appearance: none;
+  cursor: pointer;
 }
 
 .btn-primary {

@@ -1,6 +1,7 @@
-import type { PaydayRule, Period } from '../types'
+import type { Category, PaydayRule, Period } from '../types'
 import * as pm from './periodMath'
 import * as sm from './salaryMonths'
+import { NO_CATEGORY_COLOR, NO_CATEGORY_NAME, findCategory } from './categories'
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -119,6 +120,55 @@ export function monthStatPoints(periods: Period[], rules: PaydayRule[], rangeSta
       uncoveredDays: totalDays - coveredDays,
     }
   })
+}
+
+export interface CategoryStat {
+  key: string
+  name: string
+  color: string
+  spent: number
+  percent: number
+}
+
+/**
+ * Разбивка трат по категориям за показанный на экране диапазон.
+ * На вход идут периоды, уже отфильтрованные по флагу inStats, поэтому
+ * выключенных категорий здесь не будет по построению.
+ */
+export function categoryBreakdown(
+  periods: Period[],
+  categories: Category[],
+  rangeStart: string | Date,
+  rangeEnd: string | Date,
+): CategoryStat[] {
+  const startDay = pm.toUTCDay(rangeStart)
+  const endDay = pm.toUTCDay(rangeEnd)
+  const sums = new Map<number | null, number>()
+
+  for (const p of periods) {
+    for (const e of p.expenses) {
+      const day = pm.toUTCDay(e.date)
+      if (day < startDay || day > endDay) continue
+      // категории уже нет (например, в устаревшем офлайн-кэше) — в «Без категории»
+      const key = findCategory(categories, e.categoryId)?.id ?? null
+      sums.set(key, (sums.get(key) ?? 0) + Number(e.amount))
+    }
+  }
+
+  const total = [...sums.values()].reduce((s, v) => s + v, 0)
+
+  return [...sums.entries()]
+    .map(([id, spent]) => {
+      const category = findCategory(categories, id)
+      return {
+        key: id === null ? 'none' : `category-${id}`,
+        name: category?.name ?? NO_CATEGORY_NAME,
+        color: category?.color ?? NO_CATEGORY_COLOR,
+        spent,
+        percent: total > 0 ? (spent / total) * 100 : 0,
+      }
+    })
+    .sort((a, b) => b.spent - a.spent)
 }
 
 export function totals(points: StatPoint[]): StatTotals {

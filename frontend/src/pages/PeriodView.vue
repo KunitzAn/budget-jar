@@ -70,7 +70,7 @@
         </div>
       </div>
 
-      <ExpenseForm @add="handleAddExpense" />
+      <ExpenseForm :categories="categories" @add="handleAddExpense" />
 
       <div v-if="period.expenses.length > 0" class="expenses-section">
         <h3>Траты ({{ period.expenses.length }})</h3>
@@ -78,6 +78,14 @@
           <div v-for="exp in sortedExpenses" :key="exp.id" class="expense-row" :class="{ pending: isPending(exp) }">
             <span class="expense-date">
               {{ formatDate(exp.date) }}
+              <span
+                v-if="categoryOf(exp)"
+                class="category-chip"
+                :style="{ background: categoryOf(exp)!.color }"
+              >
+                {{ categoryOf(exp)!.name }}
+              </span>
+              <span v-if="isOutsideBalance(exp)" class="outside-badge">не в банке</span>
               <span v-if="isPending(exp)" class="pending-badge">⏳ ожидает синхронизации</span>
             </span>
             <span class="expense-amount">−{{ formatCurrency(Number(exp.amount)) }}</span>
@@ -106,11 +114,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getCurrentPeriod, getPeriod, deletePeriod, updatePeriodDates } from '../api/periods'
 import { addExpense, deleteExpense } from '../api/expenses'
+import { getCategories } from '../api/categories'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 import StoneJar from '../components/StoneJar.vue'
 import ExpenseForm from '../components/ExpenseForm.vue'
-import type { Expense, Period } from '../types'
+import type { Category, Expense, Period } from '../types'
 import * as pm from '../lib/periodMath'
+import { filterPeriod, findCategory } from '../lib/categories'
 
 const route = useRoute()
 const router = useRouter()
@@ -118,6 +128,7 @@ const { isOnline } = useOnlineStatus()
 const loading = ref(true)
 const error = ref('')
 const period = ref<Period | null>(null)
+const categories = ref<Category[]>([])
 
 const editingDates = ref(false)
 const editStart = ref('')
@@ -132,13 +143,24 @@ const active = computed(() => (period.value ? pm.isActive(period.value) : false)
 const future = computed(() => (period.value ? pm.isFuture(period.value) : false))
 const daysLeftValue = computed(() => (period.value ? pm.daysLeft(period.value) : 0))
 const daily = computed(() => (period.value ? pm.dailyBudget(period.value) : 0))
-const spent = computed(() => (period.value ? pm.spentSoFar(period.value) : 0))
-const spentTodayValue = computed(() => (period.value ? pm.spentToday(period.value) : 0))
+
+// банка и всё, что считает потраченное, игнорируют категории с выключенным
+// «учитывать в банке» — сам список трат ниже при этом показывает всё
+const balancePeriod = computed(() =>
+  period.value ? filterPeriod(period.value, categories.value, 'inBalance') : null,
+)
+
+const spent = computed(() => (balancePeriod.value ? pm.spentSoFar(balancePeriod.value) : 0))
+const spentTodayValue = computed(() => (balancePeriod.value ? pm.spentToday(balancePeriod.value) : 0))
 const earned = computed(() => (period.value ? pm.earnedSoFar(period.value) : 0))
-const balance = computed(() => (period.value ? pm.currentBalance(period.value) : 0))
-const remaining = computed(() => (period.value ? pm.remainingIfNoMoreSpending(period.value) : 0))
+const balance = computed(() => (balancePeriod.value ? pm.currentBalance(balancePeriod.value) : 0))
+const remaining = computed(() =>
+  balancePeriod.value ? pm.remainingIfNoMoreSpending(balancePeriod.value) : 0,
+)
 
 const isPending = (exp: Expense) => typeof exp.id === 'string' && exp.id.startsWith('local-')
+const categoryOf = (exp: Expense) => findCategory(categories.value, exp.categoryId)
+const isOutsideBalance = (exp: Expense) => categoryOf(exp)?.inBalance === false
 
 const sortedExpenses = computed(() => {
   if (!period.value) return []
@@ -162,10 +184,19 @@ const fetchPeriod = async () => {
   }
 }
 
-const handleAddExpense = async (amount: number, date: string) => {
+const fetchCategories = async () => {
+  try {
+    const { data } = await getCategories()
+    categories.value = data
+  } catch {
+    // без категорий страница полностью работоспособна — просто не будет фильтра
+  }
+}
+
+const handleAddExpense = async (amount: number, date: string, categoryId: number | null) => {
   if (!period.value) return
   try {
-    await addExpense(period.value.id, { amount, date })
+    await addExpense(period.value.id, { amount, date, categoryId })
     await fetchPeriod()
   } catch (err) {
     alert('Ошибка добавления траты')
@@ -247,6 +278,7 @@ const formatDateRange = (start: string, end: string) => pm.formatDateRange(start
 
 onMounted(() => {
   fetchPeriod()
+  fetchCategories()
   window.addEventListener('offline-sync-complete', fetchPeriod)
 })
 onUnmounted(() => {
@@ -460,6 +492,21 @@ watch(() => route.params.id, fetchPeriod)
   font-size: 0.75rem;
   color: var(--accent-purple);
   font-weight: 500;
+}
+
+.category-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.outside-badge {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .expense-amount {

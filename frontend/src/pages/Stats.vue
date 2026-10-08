@@ -83,6 +83,21 @@
 
         <StatsBarChart :points="chartPoints" />
 
+        <div v-if="breakdown.length > 0" class="breakdown">
+          <h3 class="breakdown-title">По категориям</h3>
+          <div v-for="c in breakdown" :key="c.key" class="breakdown-row">
+            <div class="breakdown-head">
+              <span class="breakdown-dot" :style="{ background: c.color }"></span>
+              <span class="breakdown-name">{{ c.name }}</span>
+              <span class="breakdown-percent">{{ Math.round(c.percent) }}%</span>
+              <span class="breakdown-amount">{{ formatCurrency(c.spent) }}</span>
+            </div>
+            <div class="breakdown-bar">
+              <div class="breakdown-fill" :style="{ width: `${c.percent}%`, background: c.color }"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="stat-list">
           <div v-for="p in reversedPoints" :key="p.key" class="stat-row">
             <div class="stat-row-main">
@@ -113,31 +128,45 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPeriods } from '../api/periods'
 import { getPaydayRules } from '../api/settings'
+import { getCategories } from '../api/categories'
 import StatsBarChart from '../components/StatsBarChart.vue'
 import * as stats from '../lib/stats'
 import * as pm from '../lib/periodMath'
-import type { Period, PaydayRule } from '../types'
+import { filterPeriods } from '../lib/categories'
+import type { Category, Period, PaydayRule } from '../types'
 
 const router = useRouter()
 const loading = ref(true)
 const periods = ref<Period[]>([])
 const rules = ref<PaydayRule[]>([])
+const categories = ref<Category[]>([])
 
 const viewMode = ref<'periods' | 'months'>('periods')
 const balanceMode = ref<'projected' | 'accrued'>('projected')
 
+// вся страница считается по тратам, из которых убраны категории с выключенным
+// «учитывать в статистике» — включая суммы, график и разбивку ниже
+const statsPeriods = computed(() => filterPeriods(periods.value, categories.value, 'inStats'))
+
 const points = computed<stats.StatPoint[]>(() => {
-  if (periods.value.length === 0) return []
-  if (viewMode.value === 'periods') return stats.periodStatPoints(periods.value)
+  if (statsPeriods.value.length === 0) return []
+  if (viewMode.value === 'periods') return stats.periodStatPoints(statsPeriods.value)
 
   if (rules.value.length === 0) return []
-  const starts = periods.value.map((p) => new Date(p.startDate).getTime())
-  const ends = periods.value.map((p) => new Date(p.endDate).getTime())
+  const starts = statsPeriods.value.map((p) => new Date(p.startDate).getTime())
+  const ends = statsPeriods.value.map((p) => new Date(p.endDate).getTime())
   const rangeStart = new Date(Math.min(...starts))
   // до сегодня — или до конца последнего периода, если он в будущем;
   // без искусственного запаса вперёд, иначе показываются пустые ненаступившие месяцы
   const rangeEnd = new Date(Math.max(...ends, Date.now()))
-  return stats.monthStatPoints(periods.value, rules.value, rangeStart, rangeEnd)
+  return stats.monthStatPoints(statsPeriods.value, rules.value, rangeStart, rangeEnd)
+})
+
+const breakdown = computed<stats.CategoryStat[]>(() => {
+  if (points.value.length === 0) return []
+  const first = points.value[0]
+  const last = points.value[points.value.length - 1]
+  return stats.categoryBreakdown(statsPeriods.value, categories.value, first.start, last.end)
 })
 
 const reversedPoints = computed(() => [...points.value].reverse())
@@ -161,9 +190,14 @@ const goToSettings = () => router.push('/settings')
 const fetchData = async () => {
   loading.value = true
   try {
-    const [periodsRes, rulesRes] = await Promise.all([getPeriods(), getPaydayRules()])
+    const [periodsRes, rulesRes, categoriesRes] = await Promise.all([
+      getPeriods(),
+      getPaydayRules(),
+      getCategories(),
+    ])
     periods.value = periodsRes.data
     rules.value = rulesRes.data
+    categories.value = categoriesRes.data
   } catch (err) {
     // офлайн без кэша — просто покажем пустое состояние
   } finally {
@@ -323,6 +357,72 @@ onUnmounted(() => {
 .card-sub {
   font-size: 0.75rem;
   color: var(--text-secondary);
+}
+
+.breakdown {
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.breakdown-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.breakdown-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.breakdown-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.breakdown-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.breakdown-name {
+  color: var(--text-primary);
+  margin-right: auto;
+}
+
+.breakdown-percent {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.breakdown-amount {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.breakdown-bar {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgba(155, 107, 255, 0.1);
+  overflow: hidden;
+}
+
+.breakdown-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s;
 }
 
 .stat-list {

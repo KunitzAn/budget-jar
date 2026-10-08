@@ -16,6 +16,24 @@ model User {
   createdAt   DateTime     @default(now())
   periods     Period[]
   paydayRules PaydayRule[]
+  categories  Category[]
+}
+
+// Категории трат задаёт сам пользователь. Два независимых флага решают, где
+// учитывать траты этой категории: inStats — вкладка «Статистика», inBalance —
+// банка и остаток текущего периода. Трата без категории учитывается везде.
+model Category {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String
+  inStats   Boolean   @default(true)
+  inBalance Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+
+  @@index([userId])
 }
 
 // История правил зарплатного месяца. Каждое правило действует с effectiveFrom
@@ -49,12 +67,16 @@ model Period {
 }
 
 model Expense {
-  id       Int      @id @default(autoincrement())
-  periodId Int
-  period   Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  amount   Decimal  @db.Decimal(10, 2)
-  date     DateTime @default(now())
-  note     String?
+  id         Int       @id @default(autoincrement())
+  periodId   Int
+  period     Period    @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  amount     Decimal   @db.Decimal(10, 2)
+  date       DateTime  @default(now())
+  note       String?
+  // удаление категории не трогает траты — они становятся «без категории»
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([periodId, date])
+  @@index([categoryId])
 }

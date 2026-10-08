@@ -14,6 +14,17 @@ export interface Expense {
   date: string
   note?: string
   periodId: number
+  categoryId?: number | null
+}
+
+export interface Category {
+  id: number
+  name: string
+  color: string
+  // учитывать траты этой категории на вкладке «Статистика»
+  inStats: boolean
+  // учитывать траты этой категории в банке и остатке периода
+  inBalance: boolean
 }
 
 export interface PaydayRule {

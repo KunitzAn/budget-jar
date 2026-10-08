@@ -4,6 +4,7 @@ import authRoutes from './routes/auth'
 import periodsRoutes from './routes/periods'
 import expensesRoutes from './routes/expenses'
 import settingsRoutes from './routes/settings'
+import categoriesRoutes from './routes/categories'
 import type { Bindings, Variables } from './types'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -28,5 +29,6 @@ app.route('/auth', authRoutes)
 app.route('/periods', periodsRoutes)
 app.route('/', expensesRoutes)
 app.route('/settings', settingsRoutes)
+app.route('/categories', categoriesRoutes)
 
 export default app
