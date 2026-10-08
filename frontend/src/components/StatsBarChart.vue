@@ -2,13 +2,9 @@
   <div class="chart-scroll">
     <div class="chart">
       <div v-for="p in points" :key="p.key" class="bar-col">
-        <span class="bar-value" :class="p.value >= 0 ? 'positive' : 'negative'">{{ formatShort(p.value) }}</span>
+        <span class="bar-value" :class="toneOf(p.value)">{{ formatShort(p.value) }}</span>
         <div class="bar-track">
-          <div
-            class="bar"
-            :class="p.value >= 0 ? 'positive' : 'negative'"
-            :style="{ height: barHeight(p.value) + '%' }"
-          ></div>
+          <div class="bar" :class="toneOf(p.value)" :style="{ height: barHeight(p.value) + '%' }"></div>
         </div>
         <span class="bar-label">{{ p.shortLabel }}</span>
       </div>
@@ -19,9 +15,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{
-  points: { key: string; shortLabel: string; value: number }[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    points: { key: string; shortLabel: string; value: number }[]
+    // 'spent' — все значения расходные, красим их расходным цветом, а не радугой
+    variant?: 'saved' | 'spent'
+  }>(),
+  { variant: 'saved' },
+)
+
+const toneOf = (value: number) =>
+  props.variant === 'spent' ? 'spend' : value >= 0 ? 'positive' : 'negative'
 
 const maxAbs = computed(() => Math.max(1, ...props.points.map((p) => Math.abs(p.value))))
 
@@ -62,7 +66,8 @@ const formatShort = (value: number) =>
   color: var(--success);
 }
 
-.bar-value.negative {
+.bar-value.negative,
+.bar-value.spend {
   color: var(--danger);
 }
 
@@ -86,6 +91,10 @@ const formatShort = (value: number) =>
 .bar.negative {
   background: var(--danger);
   opacity: 0.7;
+}
+
+.bar.spend {
+  background: linear-gradient(180deg, var(--accent-pink), var(--danger));
 }
 
 .bar-label {

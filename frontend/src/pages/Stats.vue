@@ -67,17 +67,30 @@
 
       <template v-else>
         <div class="summary-cards">
-          <div class="summary-card highlight">
+          <!-- эти две карточки переключают, что рисует график ниже -->
+          <button
+            type="button"
+            class="summary-card selectable"
+            :class="{ highlight: chartMetric === 'saved' }"
+            :aria-pressed="chartMetric === 'saved'"
+            @click="chartMetric = 'saved'"
+          >
             <span class="card-label">Сэкономлено</span>
             <span class="card-value" :class="savedTotal >= 0 ? 'positive' : 'negative'">
               {{ formatCurrency(savedTotal) }}
             </span>
             <span class="card-sub">{{ Math.round(currentTotals.savedPercent) }}% от бюджета</span>
-          </div>
-          <div class="summary-card">
+          </button>
+          <button
+            type="button"
+            class="summary-card selectable"
+            :class="{ highlight: chartMetric === 'spent' }"
+            :aria-pressed="chartMetric === 'spent'"
+            @click="chartMetric = 'spent'"
+          >
             <span class="card-label">Потрачено</span>
             <span class="card-value negative">{{ formatCurrency(currentTotals.spent) }}</span>
-          </div>
+          </button>
           <div class="summary-card">
             <span class="card-label">Бюджет</span>
             <span class="card-value">{{ formatCurrency(currentTotals.budget) }}</span>
@@ -88,7 +101,7 @@
           </div>
         </div>
 
-        <StatsBarChart :points="chartPoints" />
+        <StatsBarChart :points="chartPoints" :variant="chartMetric" />
 
         <div v-if="breakdown.length > 0" class="breakdown">
           <h3 class="breakdown-title">По категориям</h3>
@@ -151,6 +164,8 @@ const categories = ref<Category[]>([])
 
 const viewMode = ref<'periods' | 'months'>('periods')
 const balanceMode = ref<'projected' | 'accrued'>('projected')
+// что рисует график — выбирается нажатием на карточку «Сэкономлено»/«Потрачено»
+const chartMetric = ref<'saved' | 'spent'>('saved')
 
 // вся страница считается по тратам, из которых убраны категории с выключенным
 // «учитывать в статистике» — включая суммы, график и разбивку ниже
@@ -188,7 +203,12 @@ const chartPoints = computed(() =>
   points.value.map((p) => ({
     key: p.key,
     shortLabel: p.label.split(' — ')[0],
-    value: balanceMode.value === 'projected' ? p.savedProjected : p.savedAccrued,
+    value:
+      chartMetric.value === 'spent'
+        ? p.spent
+        : balanceMode.value === 'projected'
+          ? p.savedProjected
+          : p.savedAccrued,
   })),
 )
 
@@ -340,6 +360,29 @@ onUnmounted(() => {
   background:
     linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
     var(--gradient-rainbow) border-box;
+}
+
+/* карточки-переключатели графика: кнопки, но выглядят как остальные карточки */
+.summary-card.selectable {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+
+.summary-card.selectable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(155, 107, 255, 0.16);
+}
+
+.summary-card.selectable:not(.highlight) {
+  opacity: 0.85;
+}
+
+/* отличает их от обычных карточек-цифр: по этим можно нажать */
+.summary-card.selectable .card-label {
+  color: var(--accent-purple);
+  font-weight: 500;
 }
 
 .card-label {
