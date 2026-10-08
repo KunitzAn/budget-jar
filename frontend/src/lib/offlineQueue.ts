@@ -2,6 +2,7 @@ import api from './api'
 import type { Expense } from '../types'
 import {
   applyOptimisticExpenseAdd,
+  applyOptimisticExpenseCategory,
   applyOptimisticExpenseRemove,
   applyOptimisticPeriodRemove,
   replaceOptimisticExpenseId,
@@ -12,6 +13,7 @@ type ExpenseBody = { amount: number; date?: string; note?: string; categoryId?: 
 type QueuedMutation = { id: string; createdAt: number } & (
   | { type: 'addExpense'; tempId: string; periodId: number; body: ExpenseBody }
   | { type: 'deleteExpense'; id_: number; periodId: number }
+  | { type: 'updateExpenseCategory'; id_: number; periodId: number; categoryId: number | null }
   | { type: 'deletePeriod'; periodId: number }
 )
 
@@ -65,11 +67,31 @@ export function enqueueAddExpense(periodId: number, body: ExpenseBody): Expense 
 }
 
 export function enqueueDeleteExpense(id: number, periodId: number) {
-  const queue = getQueue()
+  // трату всё равно удалим — смены её категории, ждущие отправки, уже не нужны
+  const queue = getQueue().filter((m) => !(m.type === 'updateExpenseCategory' && m.id_ === id))
   queue.push({ id: genId(), type: 'deleteExpense', id_: id, periodId, createdAt: Date.now() })
   setQueue(queue)
 
   applyOptimisticExpenseRemove(periodId, id)
+}
+
+export function enqueueUpdateExpenseCategory(id: number, periodId: number, categoryId: number | null) {
+  // держим в очереди только последний выбор по этой трате
+  const queue = getQueue().filter((m) => !(m.type === 'updateExpenseCategory' && m.id_ === id))
+  queue.push({ id: genId(), type: 'updateExpenseCategory', id_: id, periodId, categoryId, createdAt: Date.now() })
+  setQueue(queue)
+
+  applyOptimisticExpenseCategory(periodId, id, categoryId)
+}
+
+/** Меняет категорию ещё не отправленной (local-...) траты прямо в её очереди. */
+export function updateLocalExpenseCategory(tempId: string, periodId: number, categoryId: number | null) {
+  const queue = getQueue().map((m) =>
+    m.type === 'addExpense' && m.tempId === tempId ? { ...m, body: { ...m.body, categoryId } } : m,
+  )
+  setQueue(queue)
+
+  applyOptimisticExpenseCategory(periodId, tempId, categoryId)
 }
 
 /** Удаляет ещё не отправленную (local-...) трату — на сервер идти не нужно. */
@@ -85,6 +107,7 @@ export function enqueueDeletePeriod(periodId: number) {
   const queue = getQueue().filter((m) => {
     if (m.type === 'addExpense' && m.periodId === periodId) return false
     if (m.type === 'deleteExpense' && m.periodId === periodId) return false
+    if (m.type === 'updateExpenseCategory' && m.periodId === periodId) return false
     return true
   })
   queue.push({ id: genId(), type: 'deletePeriod', periodId, createdAt: Date.now() })
@@ -99,6 +122,8 @@ async function syncOne(mutation: QueuedMutation) {
     replaceOptimisticExpenseId(mutation.periodId, mutation.tempId, data)
   } else if (mutation.type === 'deleteExpense') {
     await api.delete(`/expenses/${mutation.id_}`)
+  } else if (mutation.type === 'updateExpenseCategory') {
+    await api.patch(`/expenses/${mutation.id_}`, { categoryId: mutation.categoryId })
   } else {
     await api.delete(`/periods/${mutation.periodId}`)
   }

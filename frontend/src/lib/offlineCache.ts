@@ -73,6 +73,24 @@ export function applyOptimisticExpenseRemove(periodId: number, expenseId: number
   }
 }
 
+/** Меняет категорию траты во всех кэш-слотах. */
+export function applyOptimisticExpenseCategory(
+  periodId: number,
+  expenseId: number | string,
+  categoryId: number | null,
+) {
+  const update = (es: Expense[]) => es.map((e) => (e.id === expenseId ? { ...e, categoryId } : e))
+
+  const current = getCache<Period>('/periods/current')
+  if (current && current.id === periodId) setCache('/periods/current', withExpenses(current, update))
+
+  const byId = getCache<Period>(`/periods/${periodId}`)
+  if (byId) setCache(`/periods/${periodId}`, withExpenses(byId, update))
+
+  const list = getCache<Period[]>('/periods')
+  if (list) setCache('/periods', list.map((p) => (p.id === periodId ? withExpenses(p, update) : p)))
+}
+
 /** Заменяет временный (local-...) id траты на реальный после синхронизации. */
 export function replaceOptimisticExpenseId(periodId: number, tempId: string, realExpense: Expense) {
   const replace = (es: Expense[]) => es.map((e) => (e.id === tempId ? realExpense : e))

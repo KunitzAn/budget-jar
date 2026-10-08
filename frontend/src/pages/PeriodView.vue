@@ -78,12 +78,23 @@
           <div v-for="exp in sortedExpenses" :key="exp.id" class="expense-row" :class="{ pending: isPending(exp) }">
             <span class="expense-date">
               {{ formatDate(exp.date) }}
+              <!-- селект лежит прозрачным слоем поверх чипа: так чип остаётся по
+                   ширине своего названия, а нажатие открывает родной список -->
               <span
-                v-if="categoryOf(exp)"
+                v-if="categories.length > 0"
                 class="category-chip"
-                :style="{ background: categoryOf(exp)!.color }"
+                :class="{ empty: !categoryOf(exp) }"
+                :style="categoryOf(exp) ? { background: categoryOf(exp)!.color } : undefined"
               >
-                {{ categoryOf(exp)!.name }}
+                {{ categoryOf(exp)?.name ?? '+ категория' }}
+                <select
+                  :value="exp.categoryId ?? ''"
+                  aria-label="Категория траты"
+                  @change="handleChangeCategory(exp, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">Без категории</option>
+                  <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
               </span>
               <span v-if="isOutsideBalance(exp)" class="outside-badge">не в банке</span>
               <span v-if="isPending(exp)" class="pending-badge">⏳ ожидает синхронизации</span>
@@ -113,7 +124,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getCurrentPeriod, getPeriod, deletePeriod, updatePeriodDates } from '../api/periods'
-import { addExpense, deleteExpense } from '../api/expenses'
+import { addExpense, deleteExpense, updateExpenseCategory } from '../api/expenses'
 import { getCategories } from '../api/categories'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 import StoneJar from '../components/StoneJar.vue'
@@ -200,6 +211,16 @@ const handleAddExpense = async (amount: number, date: string, categoryId: number
     await fetchPeriod()
   } catch (err) {
     alert('Ошибка добавления траты')
+  }
+}
+
+const handleChangeCategory = async (exp: Expense, value: string) => {
+  if (!period.value) return
+  try {
+    await updateExpenseCategory(exp.id, period.value.id, value === '' ? null : Number(value))
+    await fetchPeriod()
+  } catch {
+    alert('Не удалось изменить категорию')
   }
 }
 
@@ -495,12 +516,35 @@ watch(() => route.params.id, fetchPeriod)
 }
 
 .category-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1875rem 0.625rem;
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
   color: #ffffff;
-  padding: 0.125rem 0.625rem;
-  border-radius: 999px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.category-chip.empty {
+  background: transparent;
+  border: 1px dashed var(--card-border);
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-shadow: none;
+}
+
+.category-chip select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  appearance: none;
+  border: none;
+  cursor: pointer;
 }
 
 .outside-badge {

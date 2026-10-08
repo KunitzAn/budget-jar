@@ -55,6 +55,38 @@ expensesRoutes.post('/periods/:periodId/expenses', async (c) => {
   return c.json(expense, 201)
 })
 
+// Сменить категорию уже добавленной траты (categoryId: null — убрать категорию)
+expensesRoutes.patch('/expenses/:id', async (c) => {
+  const prisma = createPrismaClient(c.env.DATABASE_URL)
+  const expenseId = parseInt(c.req.param('id'))
+  const { categoryId } = await c.req.json<{ categoryId: number | null }>()
+
+  const expense = await prisma.expense.findFirst({
+    where: { id: expenseId },
+    include: { period: true },
+  })
+
+  if (!expense || expense.period.userId !== c.get('userId')) {
+    return c.json({ error: 'Expense not found' }, 404)
+  }
+
+  if (categoryId != null) {
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, userId: c.get('userId') },
+    })
+    if (!category) {
+      return c.json({ error: 'Category not found' }, 404)
+    }
+  }
+
+  const updated = await prisma.expense.update({
+    where: { id: expenseId },
+    data: { categoryId: categoryId ?? null },
+  })
+
+  return c.json(updated)
+})
+
 // Удалить трату
 expensesRoutes.delete('/expenses/:id', async (c) => {
   const prisma = createPrismaClient(c.env.DATABASE_URL)
