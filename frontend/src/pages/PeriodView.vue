@@ -70,6 +70,13 @@
         </div>
       </div>
 
+      <CategoryToggles
+        :categories="categories"
+        flag="inBalance"
+        label="Учитывать в банке"
+        @updated="applyCategoryUpdate"
+      />
+
       <ExpenseForm :categories="categories" @add="handleAddExpense" />
 
       <div v-if="period.expenses.length > 0" class="expenses-section">
@@ -129,6 +136,7 @@ import { getCategories } from '../api/categories'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 import StoneJar from '../components/StoneJar.vue'
 import ExpenseForm from '../components/ExpenseForm.vue'
+import CategoryToggles from '../components/CategoryToggles.vue'
 import type { Category, Expense, Period } from '../types'
 import * as pm from '../lib/periodMath'
 import { filterPeriod, findCategory } from '../lib/categories'
@@ -212,6 +220,10 @@ const handleAddExpense = async (amount: number, date: string, categoryId: number
   } catch (err) {
     alert('Ошибка добавления траты')
   }
+}
+
+const applyCategoryUpdate = (updated: Category) => {
+  categories.value = categories.value.map((c) => (c.id === updated.id ? updated : c))
 }
 
 const handleChangeCategory = async (exp: Expense, value: string) => {

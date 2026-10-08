@@ -47,6 +47,13 @@
         </div>
       </div>
 
+      <CategoryToggles
+        :categories="categories"
+        flag="inStats"
+        label="Учитывать в статистике"
+        @updated="applyCategoryUpdate"
+      />
+
       <div v-if="viewMode === 'months' && rules.length === 0" class="empty">
         <p>Зарплатный месяц ещё не настроен.</p>
         <button @click="goToSettings" class="btn-primary">Настроить</button>
@@ -130,6 +137,7 @@ import { getPeriods } from '../api/periods'
 import { getPaydayRules } from '../api/settings'
 import { getCategories } from '../api/categories'
 import StatsBarChart from '../components/StatsBarChart.vue'
+import CategoryToggles from '../components/CategoryToggles.vue'
 import * as stats from '../lib/stats'
 import * as pm from '../lib/periodMath'
 import { filterPeriods } from '../lib/categories'
@@ -183,6 +191,10 @@ const chartPoints = computed(() =>
     value: balanceMode.value === 'projected' ? p.savedProjected : p.savedAccrued,
   })),
 )
+
+const applyCategoryUpdate = (updated: Category) => {
+  categories.value = categories.value.map((c) => (c.id === updated.id ? updated : c))
+}
 
 const formatCurrency = pm.formatCurrency
 const goToSettings = () => router.push('/settings')
