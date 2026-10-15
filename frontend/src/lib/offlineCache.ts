@@ -1,4 +1,4 @@
-import type { Expense, Period } from '../types'
+import type { Exchange, Expense, Period } from '../types'
 
 const PREFIX = 'cache:'
 
@@ -103,6 +103,26 @@ export function replaceOptimisticExpenseId(periodId: number, tempId: string, rea
 
   const list = getCache<Period[]>('/periods')
   if (list) setCache('/periods', list.map((p) => (p.id === periodId ? withExpenses(p, replace) : p)))
+}
+
+/** Обмены лежат одним списком, отсортированным по дате — порядок важен для FIFO. */
+function setExchanges(update: (list: Exchange[]) => Exchange[]) {
+  const list = getCache<Exchange[]>('/exchanges')
+  if (!list) return
+  const next = update(list).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  setCache('/exchanges', next)
+}
+
+export function applyOptimisticExchangeAdd(exchange: Exchange) {
+  setExchanges((list) => [...list, exchange])
+}
+
+export function applyOptimisticExchangeRemove(id: number | string) {
+  setExchanges((list) => list.filter((e) => e.id !== id))
+}
+
+export function replaceOptimisticExchangeId(tempId: string, real: Exchange) {
+  setExchanges((list) => list.map((e) => (e.id === tempId ? real : e)))
 }
 
 /** Убирает период из всех кэш-слотов. */

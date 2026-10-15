@@ -17,6 +17,26 @@ model User {
   periods     Period[]
   paydayRules PaydayRule[]
   categories  Category[]
+  exchanges   Exchange[]
+}
+
+// Обмен валюты: отдали fromAmount одной валюты, получили toAmount другой.
+// Курс не хранится — он выводится из пары сумм. Обмен не трата: он лишь
+// пополняет «кошелёк» иностранной валюты, из которого потом идут траты.
+// Привязан к пользователю, а не к периоду: партия валюты спокойно переживает
+// границу периода, и FIFO считается по сквозной истории.
+model Exchange {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         DateTime
+  fromCurrency String
+  fromAmount   Decimal  @db.Decimal(14, 2)
+  toCurrency   String
+  toAmount     Decimal  @db.Decimal(14, 2)
+  createdAt    DateTime @default(now())
+
+  @@index([userId, date])
 }
 
 // Категории трат задаёт сам пользователь. Два независимых флага решают, где
@@ -67,10 +87,15 @@ model Period {
 }
 
 model Expense {
-  id         Int       @id @default(autoincrement())
-  periodId   Int
-  period     Period    @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  amount     Decimal   @db.Decimal(10, 2)
+  id       Int      @id @default(autoincrement())
+  periodId Int
+  period   Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  // сумма в валюте currency: для RUB это рубли, для VND — донги.
+  // Рублёвая стоимость траты в иностранной валюте не хранится: она считается
+  // по FIFO из истории обменов, иначе забытый задним числом обмен оставил бы
+  // часть трат с неверным курсом навсегда.
+  amount     Decimal   @db.Decimal(14, 2)
+  currency   String    @default("RUB")
   date       DateTime  @default(now())
   note       String?
   // удаление категории не трогает траты — они становятся «без категории»

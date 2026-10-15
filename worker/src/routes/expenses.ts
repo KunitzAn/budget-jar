@@ -11,15 +11,20 @@ expensesRoutes.use('*', authMiddleware)
 expensesRoutes.post('/periods/:periodId/expenses', async (c) => {
   const prisma = createPrismaClient(c.env.DATABASE_URL)
   const periodId = parseInt(c.req.param('periodId'))
-  const { amount, date, note, categoryId } = await c.req.json<{
+  const { amount, date, note, categoryId, currency } = await c.req.json<{
     amount: number
     date?: string
     note?: string
     categoryId?: number | null
+    currency?: string
   }>()
 
   if (amount <= 0) {
     return c.json({ error: 'Amount must be positive' }, 400)
+  }
+
+  if (currency !== undefined && !/^[A-Z]{3}$/.test(currency)) {
+    return c.json({ error: 'Invalid currency' }, 400)
   }
 
   const period = await prisma.period.findFirst({
@@ -49,6 +54,7 @@ expensesRoutes.post('/periods/:periodId/expenses', async (c) => {
       date: date ? new Date(date) : new Date(),
       note,
       categoryId: categoryId ?? null,
+      currency: currency ?? 'RUB',
     },
   })
 

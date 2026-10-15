@@ -149,27 +149,33 @@ import { useRouter } from 'vue-router'
 import { getPeriods } from '../api/periods'
 import { getPaydayRules } from '../api/settings'
 import { getCategories } from '../api/categories'
+import { getExchanges } from '../api/exchanges'
 import StatsBarChart from '../components/StatsBarChart.vue'
 import CategoryToggles from '../components/CategoryToggles.vue'
 import * as stats from '../lib/stats'
 import * as pm from '../lib/periodMath'
 import { filterPeriods } from '../lib/categories'
-import type { Category, Period, PaydayRule } from '../types'
+import { allExpenses, convertExpenses, toRubPeriods } from '../lib/currency'
+import type { Category, Exchange, Period, PaydayRule } from '../types'
 
 const router = useRouter()
 const loading = ref(true)
 const periods = ref<Period[]>([])
 const rules = ref<PaydayRule[]>([])
 const categories = ref<Category[]>([])
+const exchanges = ref<Exchange[]>([])
 
 const viewMode = ref<'periods' | 'months'>('periods')
 const balanceMode = ref<'projected' | 'accrued'>('projected')
 // что рисует график — выбирается нажатием на карточку «Сэкономлено»/«Потрачено»
 const chartMetric = ref<'saved' | 'spent'>('saved')
 
-// вся страница считается по тратам, из которых убраны категории с выключенным
-// «учитывать в статистике» — включая суммы, график и разбивку ниже
-const statsPeriods = computed(() => filterPeriods(periods.value, categories.value, 'inStats'))
+// статистика всегда в рублях: сначала валютные траты пересчитываются по FIFO,
+// потом убираются категории с выключенным «учитывать в статистике»
+const rubPeriods = computed(() =>
+  toRubPeriods(periods.value, convertExpenses(exchanges.value, allExpenses(periods.value))),
+)
+const statsPeriods = computed(() => filterPeriods(rubPeriods.value, categories.value, 'inStats'))
 
 const points = computed<stats.StatPoint[]>(() => {
   if (statsPeriods.value.length === 0) return []
@@ -222,14 +228,16 @@ const goToSettings = () => router.push('/settings')
 const fetchData = async () => {
   loading.value = true
   try {
-    const [periodsRes, rulesRes, categoriesRes] = await Promise.all([
+    const [periodsRes, rulesRes, categoriesRes, exchangesRes] = await Promise.all([
       getPeriods(),
       getPaydayRules(),
       getCategories(),
+      getExchanges(),
     ])
     periods.value = periodsRes.data
     rules.value = rulesRes.data
     categories.value = categoriesRes.data
+    exchanges.value = exchangesRes.data
   } catch (err) {
     // офлайн без кэша — просто покажем пустое состояние
   } finally {

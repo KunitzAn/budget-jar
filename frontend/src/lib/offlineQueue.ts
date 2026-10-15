@@ -1,20 +1,39 @@
 import api from './api'
-import type { Expense } from '../types'
+import type { Exchange, Expense } from '../types'
 import {
+  applyOptimisticExchangeAdd,
+  applyOptimisticExchangeRemove,
   applyOptimisticExpenseAdd,
   applyOptimisticExpenseCategory,
   applyOptimisticExpenseRemove,
   applyOptimisticPeriodRemove,
+  replaceOptimisticExchangeId,
   replaceOptimisticExpenseId,
 } from './offlineCache'
 
-type ExpenseBody = { amount: number; date?: string; note?: string; categoryId?: number | null }
+type ExpenseBody = {
+  amount: number
+  date?: string
+  note?: string
+  categoryId?: number | null
+  currency?: string
+}
+
+type ExchangeBody = {
+  date: string
+  fromCurrency: string
+  fromAmount: number
+  toCurrency: string
+  toAmount: number
+}
 
 type QueuedMutation = { id: string; createdAt: number } & (
   | { type: 'addExpense'; tempId: string; periodId: number; body: ExpenseBody }
   | { type: 'deleteExpense'; id_: number; periodId: number }
   | { type: 'updateExpenseCategory'; id_: number; periodId: number; categoryId: number | null }
   | { type: 'deletePeriod'; periodId: number }
+  | { type: 'addExchange'; tempId: string; body: ExchangeBody }
+  | { type: 'deleteExchange'; id_: number | string }
 )
 
 const QUEUE_KEY = 'offline:queue'
@@ -56,6 +75,7 @@ export function enqueueAddExpense(periodId: number, body: ExpenseBody): Expense 
     date: body.date ?? new Date().toISOString(),
     note: body.note,
     categoryId: body.categoryId ?? null,
+    currency: body.currency ?? 'RUB',
   }
 
   const queue = getQueue()
@@ -102,6 +122,30 @@ export function dequeueLocalExpense(tempId: string, periodId: number) {
   applyOptimisticExpenseRemove(periodId, tempId)
 }
 
+export function enqueueAddExchange(body: ExchangeBody): Exchange {
+  const tempId = `local-${genId()}`
+  const exchange: Exchange = { id: tempId, ...body }
+
+  const queue = getQueue()
+  queue.push({ id: genId(), type: 'addExchange', tempId, body, createdAt: Date.now() })
+  setQueue(queue)
+
+  applyOptimisticExchangeAdd(exchange)
+  return exchange
+}
+
+export function enqueueDeleteExchange(id: number | string) {
+  // ещё не отправленный обмен просто убираем из очереди — на сервер идти не за чем
+  const isLocal = typeof id === 'string' && id.startsWith('local-')
+  const queue = getQueue().filter((m) => !(m.type === 'addExchange' && m.tempId === id))
+  if (!isLocal) {
+    queue.push({ id: genId(), type: 'deleteExchange', id_: id, createdAt: Date.now() })
+  }
+  setQueue(queue)
+
+  applyOptimisticExchangeRemove(id)
+}
+
 export function enqueueDeletePeriod(periodId: number) {
   // период всё равно удалится — несинканные мутации по нему бессмысленны
   const queue = getQueue().filter((m) => {
@@ -124,6 +168,11 @@ async function syncOne(mutation: QueuedMutation) {
     await api.delete(`/expenses/${mutation.id_}`)
   } else if (mutation.type === 'updateExpenseCategory') {
     await api.patch(`/expenses/${mutation.id_}`, { categoryId: mutation.categoryId })
+  } else if (mutation.type === 'addExchange') {
+    const { data } = await api.post<Exchange>('/exchanges', mutation.body)
+    replaceOptimisticExchangeId(mutation.tempId, data)
+  } else if (mutation.type === 'deleteExchange') {
+    await api.delete(`/exchanges/${mutation.id_}`)
   } else {
     await api.delete(`/periods/${mutation.periodId}`)
   }

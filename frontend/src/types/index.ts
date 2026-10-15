@@ -15,6 +15,19 @@ export interface Expense {
   note?: string
   periodId: number
   categoryId?: number | null
+  // валюта суммы: 'RUB' (по умолчанию) или иностранная — тогда amount в ней,
+  // а рублёвая стоимость считается по FIFO из обменов (lib/currency.ts)
+  currency?: string
+}
+
+export interface Exchange {
+  // строковый id вида `local-...` — обмен, заведённый офлайн и ещё не отправленный
+  id: number | string
+  date: string
+  fromCurrency: string
+  fromAmount: number
+  toCurrency: string
+  toAmount: number
 }
 
 export interface Category {

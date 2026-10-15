@@ -77,14 +77,50 @@
         @updated="applyCategoryUpdate"
       />
 
-      <ExpenseForm :categories="categories" @add="handleAddExpense" />
+      <ExchangeSection
+        :exchanges="exchanges"
+        :conversion="conversion"
+        :period-start="period.startDate"
+        :period-end="period.endDate"
+        @changed="handleExchangesChanged"
+      />
+
+      <ExpenseForm
+        :categories="categories"
+        :exchanges="exchanges"
+        :all-expenses="ledgerExpenses"
+        @add="handleAddExpense"
+      />
 
       <div v-if="period.expenses.length > 0" class="expenses-section">
         <h3>Траты ({{ period.expenses.length }})</h3>
         <div class="expenses-list">
           <div v-for="exp in sortedExpenses" :key="exp.id" class="expense-row" :class="{ pending: isPending(exp) }">
-            <span class="expense-date">
-              {{ formatDate(exp.date) }}
+            <div class="expense-main">
+              <span class="expense-amount">
+                −{{ formatCurrency(expenseRubValue(exp)) }}
+                <button
+                  v-if="isForeign(exp)"
+                  type="button"
+                  class="expense-original"
+                  title="Показать, из каких обменов набрана трата"
+                  @click="toggleChunks(exp)"
+                >
+                  {{ formatAmount(Number(exp.amount), exp.currency!) }}
+                </button>
+              </span>
+              <button
+                @click="handleDeleteExpense(exp.id)"
+                class="expense-delete"
+                aria-label="Удалить трату"
+                title="Удалить трату"
+              >
+                ×
+              </button>
+            </div>
+
+            <div class="expense-meta">
+              <span>{{ formatDate(exp.date) }}</span>
               <!-- селект лежит прозрачным слоем поверх чипа: так чип остаётся по
                    ширине своего названия, а нажатие открывает родной список -->
               <span
@@ -105,16 +141,16 @@
               </span>
               <span v-if="isOutsideBalance(exp)" class="outside-badge">не в банке</span>
               <span v-if="isPending(exp)" class="pending-badge">⏳ ожидает синхронизации</span>
-            </span>
-            <span class="expense-amount">−{{ formatCurrency(Number(exp.amount)) }}</span>
-            <button
-              @click="handleDeleteExpense(exp.id)"
-              class="expense-delete"
-              aria-label="Удалить трату"
-              title="Удалить трату"
-            >
-              ×
-            </button>
+            </div>
+
+            <div v-if="openedChunks === exp.id" class="chunks">
+              <div v-for="(chunk, i) in chunksOf(exp)" :key="i" class="chunk">
+                {{ formatAmount(chunk.amount, exp.currency!) }}
+                <template v-if="chunk.exchangeDate">по курсу обмена от {{ formatDate(chunk.exchangeDate) }}</template>
+                <template v-else>без обмена — по последнему известному курсу</template>
+                = {{ formatCurrency(chunk.rub) }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -130,16 +166,19 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getCurrentPeriod, getPeriod, deletePeriod, updatePeriodDates } from '../api/periods'
+import { getCurrentPeriod, getPeriod, getPeriods, deletePeriod, updatePeriodDates } from '../api/periods'
 import { addExpense, deleteExpense, updateExpenseCategory } from '../api/expenses'
 import { getCategories } from '../api/categories'
+import { getExchanges } from '../api/exchanges'
 import { useOnlineStatus } from '../composables/useOnlineStatus'
 import StoneJar from '../components/StoneJar.vue'
 import ExpenseForm from '../components/ExpenseForm.vue'
 import CategoryToggles from '../components/CategoryToggles.vue'
-import type { Category, Expense, Period } from '../types'
+import ExchangeSection from '../components/ExchangeSection.vue'
+import type { Category, Exchange, Expense, Period } from '../types'
 import * as pm from '../lib/periodMath'
 import { filterPeriod, findCategory } from '../lib/categories'
+import { BASE_CURRENCY, allExpenses, convertExpenses, formatAmount, toRubPeriod } from '../lib/currency'
 
 const route = useRoute()
 const router = useRouter()
@@ -148,6 +187,9 @@ const loading = ref(true)
 const error = ref('')
 const period = ref<Period | null>(null)
 const categories = ref<Category[]>([])
+const exchanges = ref<Exchange[]>([])
+// все периоды нужны только для FIFO: партия валюты переживает границу периода
+const allPeriods = ref<Period[]>([])
 
 const editingDates = ref(false)
 const editStart = ref('')
@@ -163,10 +205,17 @@ const future = computed(() => (period.value ? pm.isFuture(period.value) : false)
 const daysLeftValue = computed(() => (period.value ? pm.daysLeft(period.value) : 0))
 const daily = computed(() => (period.value ? pm.dailyBudget(period.value) : 0))
 
+// FIFO-пересчёт валютных трат в рубли по сквозной истории всех периодов
+const ledgerExpenses = computed(() => allExpenses(allPeriods.value))
+const conversion = computed(() => convertExpenses(exchanges.value, ledgerExpenses.value))
+
+// траты этого периода, выраженные в рублях
+const rubPeriod = computed(() => (period.value ? toRubPeriod(period.value, conversion.value) : null))
+
 // банка и всё, что считает потраченное, игнорируют категории с выключенным
 // «учитывать в банке» — сам список трат ниже при этом показывает всё
 const balancePeriod = computed(() =>
-  period.value ? filterPeriod(period.value, categories.value, 'inBalance') : null,
+  rubPeriod.value ? filterPeriod(rubPeriod.value, categories.value, 'inBalance') : null,
 )
 
 const spent = computed(() => (balancePeriod.value ? pm.spentSoFar(balancePeriod.value) : 0))
@@ -181,6 +230,18 @@ const isPending = (exp: Expense) => typeof exp.id === 'string' && exp.id.startsW
 const categoryOf = (exp: Expense) => findCategory(categories.value, exp.categoryId)
 const isOutsideBalance = (exp: Expense) => categoryOf(exp)?.inBalance === false
 
+const isForeign = (exp: Expense) => (exp.currency ?? BASE_CURRENCY) !== BASE_CURRENCY
+const expenseRubValue = (exp: Expense) =>
+  isForeign(exp) ? (conversion.value.rubByExpense.get(exp.id) ?? 0) : Number(exp.amount)
+
+// расшифровка «из каких обменов набрана трата» — раскрывается по нажатию
+const openedChunks = ref<number | string | null>(null)
+const toggleChunks = (exp: Expense) => {
+  if (!isForeign(exp)) return
+  openedChunks.value = openedChunks.value === exp.id ? null : exp.id
+}
+const chunksOf = (exp: Expense) => conversion.value.chunksByExpense.get(exp.id) ?? []
+
 const sortedExpenses = computed(() => {
   if (!period.value) return []
   return [...period.value.expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -190,8 +251,14 @@ const fetchPeriod = async () => {
   try {
     loading.value = true
     error.value = ''
-    const { data } = periodId.value ? await getPeriod(periodId.value) : await getCurrentPeriod()
+    // список всех периодов идёт следом за самим периодом: без него не посчитать
+    // FIFO, а расходиться эти два источника не должны
+    const [{ data }, listed] = await Promise.all([
+      periodId.value ? getPeriod(periodId.value) : getCurrentPeriod(),
+      getPeriods().catch(() => null),
+    ])
     period.value = data
+    if (listed) allPeriods.value = listed.data
   } catch (err: any) {
     if (err.response?.status === 404) {
       error.value = periodId.value ? 'Период не найден' : 'Нет активного периода. Создайте новый!'
@@ -212,14 +279,33 @@ const fetchCategories = async () => {
   }
 }
 
-const handleAddExpense = async (amount: number, date: string, categoryId: number | null) => {
+const fetchExchanges = async () => {
+  try {
+    const { data } = await getExchanges()
+    exchanges.value = data
+  } catch {
+    // без обменов страница работает как обычная рублёвая
+  }
+}
+
+const handleAddExpense = async (
+  amount: number,
+  date: string,
+  categoryId: number | null,
+  currency: string,
+) => {
   if (!period.value) return
   try {
-    await addExpense(period.value.id, { amount, date, categoryId })
+    await addExpense(period.value.id, { amount, date, categoryId, currency })
     await fetchPeriod()
   } catch (err) {
     alert('Ошибка добавления траты')
   }
+}
+
+const handleExchangesChanged = async () => {
+  await fetchExchanges()
+  await fetchPeriod()
 }
 
 const applyCategoryUpdate = (updated: Category) => {
@@ -309,13 +395,19 @@ const formatCurrency = pm.formatCurrency
 const formatDate = pm.formatDate
 const formatDateRange = (start: string, end: string) => pm.formatDateRange(start, end)
 
+const refreshAll = () => {
+  fetchPeriod()
+  fetchExchanges()
+}
+
 onMounted(() => {
   fetchPeriod()
   fetchCategories()
-  window.addEventListener('offline-sync-complete', fetchPeriod)
+  fetchExchanges()
+  window.addEventListener('offline-sync-complete', refreshAll)
 })
 onUnmounted(() => {
-  window.removeEventListener('offline-sync-complete', fetchPeriod)
+  window.removeEventListener('offline-sync-complete', refreshAll)
 })
 
 // переход /periods/8 -> /periods/9 переиспользует тот же компонент — перечитать данные
@@ -504,13 +596,19 @@ watch(() => route.params.id, fetchPeriod)
   border-radius: 12px;
   padding: 0.875rem 1.25rem;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 
-.expense-date {
+.expense-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.expense-meta {
   color: var(--text-secondary);
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -568,6 +666,37 @@ watch(() => route.params.id, fetchPeriod)
 .expense-amount {
   color: var(--danger);
   font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-right: auto;
+}
+
+.expense-original {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+
+.chunks {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--card-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chunk {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .expense-delete {

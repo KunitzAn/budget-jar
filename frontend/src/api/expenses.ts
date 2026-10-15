@@ -14,7 +14,7 @@ function isNetworkError(error: unknown): boolean {
 
 export const addExpense = async (
   periodId: number,
-  body: { amount: number; date?: string; note?: string; categoryId?: number | null },
+  body: { amount: number; date?: string; note?: string; categoryId?: number | null; currency?: string },
 ): Promise<{ data: Expense }> => {
   try {
     return await api.post<Expense>(`/periods/${periodId}/expenses`, body)
