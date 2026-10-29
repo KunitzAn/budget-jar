@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f2f8" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0e13" />
+
+    <!-- PWA / iOS «На экран Домой» -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Донги" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Фон сразу в цвет приложения, без белой вспышки до монтирования Vue -->
+    <style>
+      html, body { background: #f4f2f8; margin: 0; }
+      @media (prefers-color-scheme: dark) {
+        html, body { background: #0f0e13; }
+      }
+      /* Полоса под часами iPhone: в этом режиме часы всегда белые, поэтому
+         под ними цвет приложения. В браузере высота 0 — полосы нет. */
+      #status-strip {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: env(safe-area-inset-top);
+        z-index: 60;
+        pointer-events: none;
+        background: linear-gradient(90deg, #10bfae, #8f6bff);
+      }
+      @media (prefers-color-scheme: dark) {
+        #status-strip { background: #0f0e13; }
+      }
+      #app-loading {
+        position: fixed; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-family: ui-rounded, -apple-system, system-ui, sans-serif;
+        font-size: 56px; color: #10bfae;
+        animation: app-loading-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes app-loading-pulse {
+        0%, 100% { opacity: 0.5; transform: scale(0.96); }
+        50% { opacity: 1; transform: scale(1); }
+      }
+    </style>
+
+    <title>Донги</title>
+  </head>
+  <body>
+    <div id="status-strip"></div>
+    <div id="app">
+      <div id="app-loading">₫</div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

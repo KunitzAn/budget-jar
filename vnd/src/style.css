@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+
+/*
+ * Облик перенесён из fuel: пастельные размытые пятна на фоне и «стеклянные»
+ * карточки поверх. Фирменного акцента нет — у каждого смысла свой цвет:
+ * донги бирюзовые, рубли синие, траты розовые, перевод лавандовый.
+ * `--accent` — цвет текущего раздела, его ставит App.vue по маршруту.
+ */
+:root {
+  --bg: #f4f2f8;
+  --card: rgb(255 255 255 / 0.6);
+  --card-solid: #ffffff;
+  --ink: #1d1b24;
+  --muted: #6f6a7b;
+  --line: rgb(40 30 70 / 0.09);
+
+  --vnd: #10bfae;
+  --rub: #2f7bff;
+  --spend: #ff3d8b;
+  --exchange: #8f6bff;
+  --warn: #f5a800;
+  --accent: var(--vnd);
+
+  --glass-border: rgb(255 255 255 / 0.75);
+  --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 10px 30px -8px rgb(60 40 110 / 0.16),
+    0 2px 6px -2px rgb(60 40 110 / 0.08);
+  --blob-a: rgb(255 176 204 / 0.55);
+  --blob-b: rgb(150 226 190 / 0.5);
+  --blob-c: rgb(186 170 255 / 0.5);
+  --blob-d: rgb(255 226 140 / 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0e13;
+    --card: rgb(36 34 44 / 0.62);
+    --card-solid: #1d1b24;
+    --ink: #f3f1f7;
+    --muted: #a39dae;
+    --line: rgb(255 255 255 / 0.08);
+
+    --vnd: #22d3c0;
+    --rub: #5b98ff;
+    --spend: #ff5c9e;
+    --exchange: #a58bff;
+    --warn: #ffc233;
+
+    --glass-border: rgb(255 255 255 / 0.08);
+    --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 12px 30px -10px rgb(0 0 0 / 0.6);
+    --blob-a: rgb(190 70 130 / 0.22);
+    --blob-b: rgb(40 150 100 / 0.2);
+    --blob-c: rgb(110 90 220 / 0.24);
+    --blob-d: rgb(200 160 40 / 0.16);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-card-solid: var(--card-solid);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-vnd: var(--vnd);
+  --color-rub: var(--rub);
+  --color-spend: var(--spend);
+  --color-exchange: var(--exchange);
+  --color-warn: var(--warn);
+}
+
+/* Полупрозрачная карточка с размытием фона под ней — как в fuel. */
+@utility glass {
+  background-color: var(--card);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Цветное пятно в углу карточки: `glow` + style="--glow: var(--vnd)". */
+@utility glow {
+  background-image: radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--glow) 26%, transparent) 0, transparent 50%);
+}
+
+html {
+  color-scheme: light dark;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-rounded, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  min-height: 100dvh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 32% at 8% 6%, var(--blob-a), transparent 70%),
+    radial-gradient(38% 30% at 96% 20%, var(--blob-b), transparent 70%),
+    radial-gradient(46% 34% at 20% 62%, var(--blob-c), transparent 72%),
+    radial-gradient(40% 30% at 92% 88%, var(--blob-d), transparent 70%);
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+/* Поля ввода: одинаковые везде, без повторения классов в каждом экране. */
+@utility field {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background-color: var(--card-solid);
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  color: var(--ink);
+}
