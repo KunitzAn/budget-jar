@@ -2,7 +2,7 @@ import { and, eq, gte, sql } from 'drizzle-orm'
 import { loginCodeRequests, loginCodes, users } from '../../../db/schema'
 import { getDb } from '../../_lib/db'
 import type { Env } from '../../_lib/env'
-import { sendLoginCodeEmail } from '../../_lib/email'
+import { EmailNotConfigured, sendLoginCodeEmail } from '../../_lib/email'
 import { clientIp, error, json, readJson, sameOrigin } from '../../_lib/http'
 import { generateCode, hashCode, LOGIN_CODE_TTL_SECONDS } from '../../_lib/loginCode'
 
@@ -63,6 +63,11 @@ export const onRequestPost: PagesFunction<Env> = async (ctx) => {
     await sendLoginCodeEmail(ctx.env, email, code)
   } catch (err) {
     console.error('sendLoginCodeEmail failed', err)
+    // Разные причины — разные ответы: по «не настроено» сразу понятно, что
+    // дело в переменных окружения, а не в почте
+    if (err instanceof EmailNotConfigured) {
+      return error(500, `email_not_configured: ${err.message}`)
+    }
     return error(502, 'email_send_failed')
   }
 

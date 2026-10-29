@@ -1,6 +1,14 @@
 import type { Env } from './env'
 
+/** Нет ключа или отправителя — это настройка окружения, а не сбой отправки. */
+export class EmailNotConfigured extends Error {}
+
 export async function sendLoginCodeEmail(env: Env, to: string, code: string): Promise<void> {
+  // Проверяем отдельно: без этого Resend возвращает невнятную 422, и по
+  // ответу приложения не отличить «забыли переменную» от «письмо не ушло».
+  if (!env.RESEND_API_KEY) throw new EmailNotConfigured('RESEND_API_KEY')
+  if (!env.LOGIN_EMAIL_FROM) throw new EmailNotConfigured('LOGIN_EMAIL_FROM')
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
