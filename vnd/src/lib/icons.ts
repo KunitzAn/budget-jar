@@ -89,6 +89,7 @@ import {
   Globe,
   GraduationCap,
   Grape,
+  Groceries,
   Guitar,
   Ham,
   Hamburger,
@@ -243,6 +244,12 @@ export const ICON_GROUPS: IconGroup[] = [
   {
     title: 'Еда',
     icons: [
+      {
+        name: 'Groceries',
+        icon: Groceries,
+        label: 'Продукты',
+        alias: 'корзина сумка супермаркет рынок покупки еда',
+      },
       { name: 'Utensils', icon: Utensils, label: 'Еда', alias: 'вилка обед ужин' },
       { name: 'UtensilsCrossed', icon: UtensilsCrossed, label: 'Ресторан', alias: 'кафе' },
       { name: 'Soup', icon: Soup, label: 'Суп', alias: 'фо лапша бульон' },
@@ -396,8 +403,8 @@ export const ICON_GROUPS: IconGroup[] = [
   {
     title: 'Покупки',
     icons: [
-      { name: 'ShoppingCart', icon: ShoppingCart, label: 'Продукты', alias: 'супермаркет тележка' },
-      { name: 'ShoppingBasket', icon: ShoppingBasket, label: 'Корзина', alias: 'магазин' },
+      { name: 'ShoppingCart', icon: ShoppingCart, label: 'Супермаркет', alias: 'продукты тележка' },
+      { name: 'ShoppingBasket', icon: ShoppingBasket, label: 'Корзина', alias: 'магазин продукты' },
       { name: 'ShoppingBag', icon: ShoppingBag, label: 'Покупки', alias: 'шопинг' },
       { name: 'Store', icon: Store, label: 'Магазин', alias: 'лавка рынок' },
       { name: 'Package', icon: Package, label: 'Посылка', alias: 'заказ доставка' },
