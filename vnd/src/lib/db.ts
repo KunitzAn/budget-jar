@@ -24,6 +24,9 @@ export interface Category extends SyncFields {
   position: number
 }
 
+/** Статья, которая должна быть всегда: трате без статьи деваться некуда. */
+export const DEFAULT_CATEGORY_NAME = 'Другое'
+
 /** Перевод рублей в донги — он же «шкала». */
 export interface Exchange extends SyncFields {
   id: string

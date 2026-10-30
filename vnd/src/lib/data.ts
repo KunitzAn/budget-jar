@@ -1,5 +1,5 @@
-import { db, newId, today, type Category, type Exchange, type Expense } from './db'
-import { refreshPendingCount, runSync } from './sync'
+import { db, DEFAULT_CATEGORY_NAME, newId, today, type Category, type Exchange, type Expense } from './db'
+import { getSyncedUserId, hasSynced, mergeDuplicateDefaults, refreshPendingCount, runSync } from './sync'
 
 /**
  * Все изменения пишутся сначала в локальную базу и помечаются `dirty`, а
@@ -17,13 +17,32 @@ function afterWrite(): void {
   void runSync()
 }
 
-export const DEFAULT_CATEGORY_NAME = 'Другое'
+export { DEFAULT_CATEGORY_NAME }
+
+/**
+ * Идентификатор «Другого» — один и тот же на всех устройствах пользователя.
+ * Новое устройство открывает приложение с пустой локальной базой и заводит
+ * статью раньше, чем успевает синхронизироваться; со случайным id после
+ * синхронизации получались две одинаковые статьи.
+ */
+function defaultCategoryId(): string {
+  const userId = getSyncedUserId()
+  return userId === null ? newId() : `default-${userId}`
+}
 
 /**
  * Статья обязательна у каждой траты, поэтому «Другое» должна существовать
  * всегда — создаём её при первом открытии, если список пуст.
  */
 export async function ensureDefaultCategory(): Promise<Category> {
+  await mergeDuplicateDefaults()
+
+  // Первый запуск на новом устройстве: база пуста просто потому, что данные
+  // ещё не приехали. Дождёмся их, иначе заведём лишнюю копию «Другого».
+  if ((await db.categories.count()) === 0 && !hasSynced() && navigator.onLine) {
+    await runSync()
+  }
+
   const existing = await db.categories.filter((c) => !c.deletedAt).toArray()
   if (existing.length > 0) {
     const other = existing.find((c) => c.name === DEFAULT_CATEGORY_NAME)
@@ -31,7 +50,7 @@ export async function ensureDefaultCategory(): Promise<Category> {
   }
 
   const category: Category = {
-    id: newId(),
+    id: defaultCategoryId(),
     name: DEFAULT_CATEGORY_NAME,
     icon: 'Ellipsis',
     position: 999,

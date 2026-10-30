@@ -116,9 +116,13 @@ async function pushCategories(db: Db, rows: IncomingRow[], userId: number): Prom
       .limit(1)
 
     if (existing) {
-      if (existing.updatedAt >= base.updatedAt) continue
-      const { createdAt: _createdAt, ...patch } = values
-      await db.update(categories).set(patch).where(eq(categories.id, base.id))
+      // Версия сервера не старше присланной — записывать нечего, но строку
+      // всё равно считаем принятой: иначе клиент будет вечно считать её
+      // неотправленной и слать снова при каждой синхронизации.
+      if (existing.updatedAt < base.updatedAt) {
+        const { createdAt: _createdAt, ...patch } = values
+        await db.update(categories).set(patch).where(eq(categories.id, base.id))
+      }
     } else {
       await db.insert(categories).values(values)
     }
@@ -146,9 +150,10 @@ async function pushExchanges(db: Db, rows: IncomingRow[], userId: number): Promi
       .limit(1)
 
     if (existing) {
-      if (existing.updatedAt >= base.updatedAt) continue
-      const { createdAt: _createdAt, ...patch } = values
-      await db.update(exchanges).set(patch).where(eq(exchanges.id, base.id))
+      if (existing.updatedAt < base.updatedAt) {
+        const { createdAt: _createdAt, ...patch } = values
+        await db.update(exchanges).set(patch).where(eq(exchanges.id, base.id))
+      }
     } else {
       await db.insert(exchanges).values(values)
     }
@@ -184,9 +189,10 @@ async function pushExpenses(db: Db, rows: IncomingRow[], userId: number): Promis
       .limit(1)
 
     if (existing) {
-      if (existing.updatedAt >= base.updatedAt) continue
-      const { createdAt: _createdAt, ...patch } = values
-      await db.update(expenses).set(patch).where(eq(expenses.id, base.id))
+      if (existing.updatedAt < base.updatedAt) {
+        const { createdAt: _createdAt, ...patch } = values
+        await db.update(expenses).set(patch).where(eq(expenses.id, base.id))
+      }
     } else {
       await db.insert(expenses).values(values)
     }

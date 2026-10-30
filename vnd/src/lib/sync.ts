@@ -2,7 +2,7 @@ import type { Table } from 'dexie'
 import { ref } from 'vue'
 import { api, ApiError } from './api'
 import { checkSession, me } from './auth'
-import { db, type Category, type Exchange, type Expense } from './db'
+import { db, DEFAULT_CATEGORY_NAME, type Category, type Exchange, type Expense } from './db'
 
 const LAST_SYNCED_AT_KEY = 'vnd:lastSyncedAt'
 const SYNCED_USER_ID_KEY = 'vnd:syncedUserId'
@@ -41,6 +41,11 @@ function writeLocal(key: string, value: string): void {
  * приложение, не дожидаясь сети: на iOS в авиарежиме запрос не падает, а
  * висит, и холодный офлайн-старт иначе застревал бы на экране входа.
  */
+/** Была ли хоть одна удачная синхронизация на этом устройстве. */
+export function hasSynced(): boolean {
+  return Boolean(readLocal(LAST_SYNCED_AT_KEY))
+}
+
 export function getSyncedUserId(): number | null {
   const raw = readLocal(SYNCED_USER_ID_KEY)
   return raw ? Number(raw) : null
@@ -101,19 +106,41 @@ async function pushDirty(since: string | null): Promise<SyncResponse | null> {
   return res
 }
 
-let running = false
+/**
+ * Схлопывает одинаковые «Другое». Устройство заводит эту статью при первом
+ * открытии, ещё не зная, что она уже есть на сервере, — и после обмена их
+ * оказывается две. Оставляем самую старую, траты переводим на неё, лишние
+ * помечаем удалёнными; удаление уедет на сервер обычным push.
+ */
+export async function mergeDuplicateDefaults(): Promise<boolean> {
+  const duplicates = (await db.categories.toArray())
+    .filter((c) => !c.deletedAt && c.name === DEFAULT_CATEGORY_NAME)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+  if (duplicates.length < 2) return false
+
+  const [keep, ...extra] = duplicates
+  const now = new Date().toISOString()
+  for (const dup of extra) {
+    const orphans = await db.expenses.where('categoryId').equals(dup.id).toArray()
+    for (const e of orphans) {
+      await db.expenses.update(e.id, { categoryId: keep!.id, updatedAt: now, dirty: true })
+    }
+    await db.categories.update(dup.id, { deletedAt: now, updatedAt: now, dirty: true })
+  }
+  return true
+}
 
 /**
  * Один проход синхронизации: сначала отправляем локальные правки, потом
- * забираем всё, что сервер видел после прошлого раза.
+ * забираем всё, что сервер видел после прошлого раза. Возвращает признак
+ * того, что пришлось схлопнуть дубли — их отправит второй проход.
  */
-export async function runSync(): Promise<void> {
-  if (running) return
-  running = true
+async function syncOnce(): Promise<boolean> {
   syncing.value = true
+  let merged = false
   try {
     if (!me.value) await checkSession()
-    if (!me.value) return
+    if (!me.value) return false
 
     // сменился пользователь — локальная копия чужая, начинаем с нуля
     const syncedUser = readLocal(SYNCED_USER_ID_KEY)
@@ -131,6 +158,7 @@ export async function runSync(): Promise<void> {
     await applyServerRows(db.categories as Table<Category, string>, res.categories)
     await applyServerRows(db.exchanges as Table<Exchange, string>, res.exchanges)
     await applyServerRows(db.expenses as Table<Expense, string>, res.expenses)
+    merged = await mergeDuplicateDefaults()
 
     writeLocal(LAST_SYNCED_AT_KEY, res.serverTime)
     lastSyncError.value = null
@@ -143,8 +171,26 @@ export async function runSync(): Promise<void> {
   } finally {
     await refreshPendingCount()
     syncing.value = false
-    running = false
   }
+  return merged
+}
+
+let current: Promise<void> | null = null
+
+/**
+ * Синхронизация. Если проход уже идёт, отдаём его же обещание: вызывающий
+ * ждёт настоящего результата, а не возвращается с пустыми руками (на этом
+ * раньше спотыкалась проверка «есть ли уже статья „Другое“»).
+ */
+export function runSync(): Promise<void> {
+  if (current) return current
+  current = (async () => {
+    // склейка дублей происходит уже после push — отправляем её вторым проходом
+    if (await syncOnce()) await syncOnce()
+  })().finally(() => {
+    current = null
+  })
+  return current
 }
 
 export function installSyncTriggers(): void {
