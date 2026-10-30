@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Check, Fingerprint, GripVertical, Plus, Trash2 } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import SheetModal from '../components/SheetModal.vue'
 import { alive, addCategory, removeCategory, updateCategory } from '../lib/data'
 import { logout, me } from '../lib/auth'
 import { db, type Category } from '../lib/db'
-import { ICON_NAMES, iconComponent } from '../lib/icons'
+import { ICON_GROUPS, ICON_NAMES, iconComponent, searchIcons } from '../lib/icons'
 import {
   listPasskeys,
   passkeyAvailable,
@@ -34,17 +34,36 @@ const editing = ref<Category | null>(null)
 const creating = ref(false)
 const draftName = ref('')
 const draftIcon = ref(ICON_NAMES[0]!)
+const iconQuery = ref('')
+
+const visibleIcons = computed(() => searchIcons(iconQuery.value))
+
+/** Подпись выбранной иконки — по ней понятно, что именно отмечено в сетке. */
+const draftIconLabel = computed(
+  () => ICON_GROUPS.flatMap((g) => g.icons).find((i) => i.name === draftIcon.value)?.label ?? '',
+)
 
 function openNew() {
   draftName.value = ''
   draftIcon.value = ICON_NAMES[0]!
+  iconQuery.value = ''
   creating.value = true
+}
+
+const iconList = ref<HTMLElement | null>(null)
+
+/** Выбранная иконка может быть глубоко в списке — подкручиваем к ней. */
+async function revealSelectedIcon() {
+  await nextTick()
+  iconList.value?.querySelector(`[data-icon="${draftIcon.value}"]`)?.scrollIntoView({ block: 'center' })
 }
 
 function openEdit(category: Category) {
   draftName.value = category.name
   draftIcon.value = category.icon
+  iconQuery.value = ''
   editing.value = category
+  void revealSelectedIcon()
 }
 
 function closeSheet() {
@@ -226,22 +245,38 @@ async function handleLogout() {
       </label>
 
       <div class="flex flex-col gap-1.5">
-        <span class="text-xs text-muted">Иконка</span>
-        <div class="grid grid-cols-6 gap-2">
-          <button
-            v-for="name in ICON_NAMES"
-            :key="name"
-            type="button"
-            class="aspect-square rounded-xl grid place-items-center border transition-colors"
-            :style="
-              draftIcon === name
-                ? { borderColor: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 14%, transparent)', color: 'var(--accent)' }
-                : { borderColor: 'var(--line)', color: 'var(--muted)' }
-            "
-            @click="draftIcon = name"
-          >
-            <component :is="iconComponent(name)" :size="18" />
-          </button>
+        <div class="flex items-baseline justify-between">
+          <span class="text-xs text-muted">Иконка</span>
+          <span class="text-xs text-muted">{{ draftIconLabel }}</span>
+        </div>
+        <input v-model="iconQuery" type="search" placeholder="Поиск: кофе, такси, врач…" class="field" />
+
+        <div ref="iconList" class="max-h-72 overflow-y-auto -mx-1 px-1 flex flex-col gap-3">
+          <div v-for="group in visibleIcons" :key="group.title" class="flex flex-col gap-1.5">
+            <span class="text-[11px] uppercase tracking-wide text-muted">{{ group.title }}</span>
+            <div class="grid grid-cols-6 gap-2">
+              <button
+                v-for="item in group.icons"
+                :key="item.name"
+                type="button"
+                :data-icon="item.name"
+                :title="item.label"
+                :aria-label="item.label"
+                class="aspect-square rounded-xl grid place-items-center border transition-colors"
+                :style="
+                  draftIcon === item.name
+                    ? { borderColor: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 14%, transparent)', color: 'var(--accent)' }
+                    : { borderColor: 'var(--line)', color: 'var(--muted)' }
+                "
+                @click="draftIcon = item.name"
+              >
+                <component :is="item.icon" :size="18" />
+              </button>
+            </div>
+          </div>
+          <p v-if="visibleIcons.length === 0" class="py-3 text-sm text-muted">
+            Ничего не нашлось — попробуйте другое слово.
+          </p>
         </div>
       </div>
 
