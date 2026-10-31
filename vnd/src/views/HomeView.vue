@@ -132,7 +132,7 @@ function closeExpense() {
         <div class="glass rounded-3xl overflow-hidden">
           <div v-for="day in recent" :key="day.date">
             <DayHeader :date="day.date" :total="day.total" />
-            <div class="divide-y" style="border-color: var(--line)">
+            <div class="rows">
               <ExpenseRow
                 v-for="e in day.rows"
                 :key="e.id"

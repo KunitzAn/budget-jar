@@ -52,6 +52,21 @@ export function todayLabel(date: string): string | null {
   return null
 }
 
+/** Сколько дней прошло со дня обмена — по календарю, а не по часам. */
+export function daysSince(date: string): number {
+  const start = parseLocalDate(date).getTime()
+  const now = new Date().setHours(0, 0, 0, 0)
+  return Math.max(0, Math.round((now - start) / 86_400_000))
+}
+
+/**
+ * Который день идёт с обмена: день самого обмена — первый. Порядковое
+ * число короче, чем «прошло 8 дней», и влезает в строку рядом с суммой.
+ */
+export function formatDayOf(date: string): string {
+  return `${daysSince(date) + 1}-й день`
+}
+
 export function formatDateRange(from: string, to: string): string {
   return from === to ? formatDate(from) : `${formatDate(from)} — ${formatDate(to)}`
 }

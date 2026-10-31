@@ -252,7 +252,7 @@ const PRESETS: { value: RangePreset; label: string }[] = [
         <div class="glass rounded-3xl overflow-hidden">
           <div v-for="day in days" :key="day.date">
             <DayHeader :date="day.date" :total="day.total" />
-            <div class="divide-y" style="border-color: var(--line)">
+            <div class="rows">
               <ExpenseRow
                 v-for="row in day.rows"
                 :key="row.expense.id + row.vnd"

@@ -128,7 +128,7 @@ async function handleLogout() {
           </button>
         </div>
 
-        <div class="glass rounded-3xl divide-y" style="border-color: var(--line)">
+        <div class="glass rounded-3xl rows">
           <button
             v-for="c in categories"
             :key="c.id"

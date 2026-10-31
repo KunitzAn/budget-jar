@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Bar } from '../lib/fifo'
-import { formatDate, formatRate, formatRub } from '../lib/format'
+import { formatDate, formatDayOf, formatRate, formatRub } from '../lib/format'
 import Vnd from './Vnd.vue'
 
 const props = defineProps<{
@@ -35,6 +35,15 @@ const width = () => (props.bar.percent > 0 ? Math.max(props.bar.percent, 2) : 0)
     <div class="flex items-center justify-between gap-2 text-xs text-muted">
       <span>{{ formatDate(bar.date) }} · {{ formatRate(bar.rub, bar.vnd) }}</span>
       <span>≈ {{ formatRub(bar.remainingRub) }}</span>
+    </div>
+
+    <!-- Сколько уже съедено из этой шкалы и за сколько дней: по этим двум
+         числам видно, дотянет ли остаток до следующего обмена. -->
+    <div class="flex items-center justify-between gap-2 text-xs text-muted">
+      <span>
+        Потрачено <Vnd :value="bar.spentVnd" /> · {{ formatRub(bar.spentVnd * bar.rate) }}
+      </span>
+      <span>{{ formatDayOf(bar.date) }}</span>
     </div>
   </div>
 </template>

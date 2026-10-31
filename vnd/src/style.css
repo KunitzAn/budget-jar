@@ -128,3 +128,14 @@ button {
   font-size: 1rem;
   color: var(--ink);
 }
+
+/*
+ * Список строк. Разделитель задаём самим строкам, а не контейнеру: цвет
+ * рамки не наследуется, и divide-y брал бы currentColor — то есть цвет
+ * текста, отчего линии выходили чернильными и спорили с полосками дней.
+ */
+@utility rows {
+  & > * + * {
+    border-top: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  }
+}
