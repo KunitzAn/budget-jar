@@ -46,3 +46,32 @@ export function presetRange(preset: Exclude<RangePreset, 'custom'>): Range {
 export function inRange(date: string, range: Range): boolean {
   return date >= range.from && date <= range.to
 }
+
+export interface DayGroup<T> {
+  date: string
+  total: number
+  rows: T[]
+}
+
+/**
+ * Разбивает уже отсортированный список трат по дням. Порядок не меняем: как
+ * строки пришли, так и покажем, — иначе день пришлось бы собирать заново.
+ */
+export function groupByDay<T>(
+  rows: T[],
+  dateOf: (row: T) => string,
+  amountOf: (row: T) => number,
+): DayGroup<T>[] {
+  const groups: DayGroup<T>[] = []
+  for (const row of rows) {
+    const date = dateOf(row)
+    let group = groups[groups.length - 1]
+    if (!group || group.date !== date) {
+      group = { date, total: 0, rows: [] }
+      groups.push(group)
+    }
+    group.rows.push(row)
+    group.total += amountOf(row)
+  }
+  return groups
+}

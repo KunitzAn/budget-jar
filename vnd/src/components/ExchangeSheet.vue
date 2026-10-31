@@ -5,6 +5,8 @@ import type { Exchange } from '../lib/db'
 import { today } from '../lib/db'
 import { formatRate } from '../lib/format'
 import SheetModal from './SheetModal.vue'
+import Vnd from './Vnd.vue'
+import VndField from './VndField.vue'
 
 const props = defineProps<{ exchange?: Exchange | null }>()
 const emit = defineEmits<{ close: [] }>()
@@ -45,15 +47,12 @@ async function save() {
       </div>
     </label>
 
-    <label class="flex flex-col gap-1.5">
-      <span class="text-xs text-muted">Получила</span>
-      <div class="relative">
-        <input v-model.number="vnd" type="number" inputmode="numeric" min="0" placeholder="3000000" class="field pr-10 text-xl" />
-        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-muted">₫</span>
-      </div>
-    </label>
+    <VndField v-model="vnd" label="Получила" placeholder="3000" />
 
-    <p v-if="rate" class="text-sm text-exchange">Курс: {{ rate }}</p>
+    <p v-if="rate" class="text-sm flex flex-wrap items-baseline gap-x-2">
+      <Vnd :value="vnd ?? 0" class="text-ink" />
+      <span class="text-exchange">Курс: {{ rate }}</span>
+    </p>
 
     <label class="flex flex-col gap-1.5">
       <span class="text-xs text-muted">Дата</span>

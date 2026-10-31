@@ -2,11 +2,13 @@
 import { computed, ref } from 'vue'
 import ExpenseRow from '../components/ExpenseRow.vue'
 import ExpenseSheet from '../components/ExpenseSheet.vue'
+import DayHeader from '../components/DayHeader.vue'
 import { alive } from '../lib/data'
 import { db } from '../lib/db'
-import { formatDate, formatRub, formatVnd } from '../lib/format'
+import { formatDate, formatRub } from '../lib/format'
+import Vnd from '../components/Vnd.vue'
 import { iconComponent } from '../lib/icons'
-import { fifoOf, inRange, presetRange, type Range, type RangePreset } from '../lib/stats'
+import { fifoOf, groupByDay, inRange, presetRange, type Range, type RangePreset } from '../lib/stats'
 import { useLiveQuery } from '../lib/useLiveQuery'
 import type { Expense } from '../lib/db'
 
@@ -99,11 +101,15 @@ const totals = computed(() => {
   return { vnd, rub, count: shown.value.length, byCategory }
 })
 
-const sortedRows = computed(() =>
-  [...shown.value].sort((a, b) =>
-    a.expense.date === b.expense.date
-      ? b.expense.createdAt.localeCompare(a.expense.createdAt)
-      : b.expense.date.localeCompare(a.expense.date),
+const days = computed(() =>
+  groupByDay(
+    [...shown.value].sort((a, b) =>
+      a.expense.date === b.expense.date
+        ? b.expense.createdAt.localeCompare(a.expense.createdAt)
+        : b.expense.date.localeCompare(a.expense.date),
+    ),
+    (r) => r.expense.date,
+    (r) => r.vnd,
   ),
 )
 
@@ -188,7 +194,7 @@ const PRESETS: { value: RangePreset; label: string }[] = [
             "
             @click="selectedBarId = bar.id"
           >
-            {{ formatDate(bar.date) }} · {{ formatVnd(bar.vnd) }}
+            {{ formatDate(bar.date) }} · <Vnd :value="bar.vnd" />
           </button>
         </div>
         <p v-else class="text-sm text-muted">Переводов пока нет.</p>
@@ -215,7 +221,7 @@ const PRESETS: { value: RangePreset; label: string }[] = [
       <section class="glass rounded-3xl p-4 flex flex-col gap-1">
         <span class="text-xs text-muted">Потрачено{{ activeCategories.size > 0 ? ' (с фильтром)' : '' }}</span>
         <div class="flex items-baseline gap-3">
-          <span class="text-2xl font-bold" :style="{ color: 'var(--spend)' }">{{ formatVnd(totals.vnd) }}</span>
+          <span class="text-2xl font-bold" :style="{ color: 'var(--spend)' }"><Vnd :value="totals.vnd" /></span>
           <span class="text-base text-muted">{{ formatRub(totals.rub) }}</span>
         </div>
         <span class="text-xs text-muted">{{ totals.count }} трат</span>
@@ -232,7 +238,7 @@ const PRESETS: { value: RangePreset; label: string }[] = [
             />
             <span class="text-ink truncate">{{ row.category?.name ?? 'Удалённая статья' }}</span>
             <span class="ml-auto text-xs text-muted">{{ Math.round(row.percent) }}%</span>
-            <span class="font-medium text-ink">{{ formatVnd(row.vnd) }}</span>
+            <span class="font-medium text-ink"><Vnd :value="row.vnd" /></span>
           </div>
           <div class="h-1.5 rounded-full bg-line overflow-hidden">
             <div class="h-full rounded-full" :style="{ width: `${row.percent}%`, background: 'var(--spend)' }" />
@@ -241,18 +247,22 @@ const PRESETS: { value: RangePreset; label: string }[] = [
         </div>
       </section>
 
-      <section v-if="sortedRows.length > 0" class="flex flex-col gap-2">
+      <section v-if="days.length > 0" class="flex flex-col gap-2">
         <h2 class="text-sm font-semibold text-muted px-1">Траты</h2>
-        <div class="glass rounded-3xl divide-y" style="border-color: var(--line)">
-          <ExpenseRow
-            v-for="row in sortedRows"
-            :key="row.expense.id + row.vnd"
-            :expense="{ ...row.expense, vnd: row.vnd }"
-            :category="categoryById.get(row.expense.categoryId)"
-            :rub="row.rub"
-            with-date
-            @open="editing = row.expense"
-          />
+        <div class="glass rounded-3xl overflow-hidden">
+          <div v-for="day in days" :key="day.date">
+            <DayHeader :date="day.date" :total="day.total" />
+            <div class="divide-y" style="border-color: var(--line)">
+              <ExpenseRow
+                v-for="row in day.rows"
+                :key="row.expense.id + row.vnd"
+                :expense="{ ...row.expense, vnd: row.vnd }"
+                :category="categoryById.get(row.expense.categoryId)"
+                :rub="row.rub"
+                @open="editing = row.expense"
+              />
+            </div>
+          </div>
         </div>
       </section>
 

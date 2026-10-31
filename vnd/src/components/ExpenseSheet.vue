@@ -8,6 +8,8 @@ import { formatRub } from '../lib/format'
 import { iconComponent } from '../lib/icons'
 import type { Exchange } from '../lib/db'
 import SheetModal from './SheetModal.vue'
+import Vnd from './Vnd.vue'
+import VndField from './VndField.vue'
 
 const props = defineProps<{
   categories: Category[]
@@ -85,24 +87,14 @@ async function save() {
 
 <template>
   <SheetModal :title="expense ? 'Трата' : 'Новая трата'" @close="emit('close')">
-    <label class="flex flex-col gap-1.5">
-      <span class="text-xs text-muted">Сколько потратили</span>
-      <div class="relative">
-        <input
-          v-model.number="vnd"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          placeholder="150000"
-          class="field pr-10 text-xl"
-        />
-        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-muted">₫</span>
-      </div>
-    </label>
+    <VndField v-model="vnd" label="Сколько потратили" placeholder="150" />
 
-    <p v-if="preview" class="text-sm" :class="preview.short ? 'text-warn' : 'text-rub'">
-      ≈ {{ formatRub(preview.rub) }}
-      <span v-if="preview.short"> — переведённого не хватает, добавьте перевод</span>
+    <p v-if="preview" class="text-sm flex flex-wrap items-baseline gap-x-2">
+      <Vnd :value="vnd ?? 0" class="text-ink" />
+      <span :class="preview.short ? 'text-warn' : 'text-rub'">
+        ≈ {{ formatRub(preview.rub) }}
+        <span v-if="preview.short"> — переведённого не хватает, добавьте перевод</span>
+      </span>
     </p>
 
     <div class="flex flex-col gap-1.5">

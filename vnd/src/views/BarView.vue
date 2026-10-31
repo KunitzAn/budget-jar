@@ -6,10 +6,12 @@ import BarGauge from '../components/BarGauge.vue'
 import ExchangeSheet from '../components/ExchangeSheet.vue'
 import ExpenseRow from '../components/ExpenseRow.vue'
 import ExpenseSheet from '../components/ExpenseSheet.vue'
+import DayHeader from '../components/DayHeader.vue'
+import Vnd from '../components/Vnd.vue'
 import { alive, removeExchange } from '../lib/data'
 import { db, type Expense } from '../lib/db'
-import { formatRub, formatVnd } from '../lib/format'
-import { fifoOf } from '../lib/stats'
+import { formatRub } from '../lib/format'
+import { fifoOf, groupByDay } from '../lib/stats'
 import { iconComponent } from '../lib/icons'
 import { useLiveQuery } from '../lib/useLiveQuery'
 
@@ -44,6 +46,14 @@ const rows = computed(() => {
     .filter((r): r is NonNullable<typeof r> => r !== null)
     .reverse()
 })
+
+const days = computed(() =>
+  groupByDay(
+    rows.value,
+    (r) => r.expense.date,
+    (r) => r.chunk.vnd,
+  ),
+)
 
 const totals = computed(() => {
   if (!bar.value) return null
@@ -102,12 +112,12 @@ async function handleRemove() {
         <section class="grid grid-cols-2 gap-3">
           <div class="glass rounded-2xl p-3.5 flex flex-col gap-1">
             <span class="text-xs text-muted">Переведено</span>
-            <span class="text-base font-medium text-ink">{{ formatVnd(bar.vnd) }}</span>
+            <span class="text-base font-medium text-ink"><Vnd :value="bar.vnd" /></span>
             <span class="text-xs text-muted">{{ formatRub(bar.rub) }}</span>
           </div>
           <div class="glass rounded-2xl p-3.5 flex flex-col gap-1">
             <span class="text-xs text-muted">Потрачено</span>
-            <span class="text-base font-medium" :style="{ color: 'var(--spend)' }">{{ formatVnd(bar.spentVnd) }}</span>
+            <span class="text-base font-medium" :style="{ color: 'var(--spend)' }"><Vnd :value="bar.spentVnd" /></span>
             <span class="text-xs text-muted">{{ formatRub(bar.spentVnd * bar.rate) }}</span>
           </div>
         </section>
@@ -124,7 +134,7 @@ async function handleRemove() {
                 />
                 <span class="text-ink">{{ row.category?.name ?? 'Удалённая статья' }}</span>
                 <span class="ml-auto text-muted text-xs">{{ Math.round(row.percent) }}%</span>
-                <span class="text-ink font-medium">{{ formatVnd(row.vnd) }}</span>
+                <span class="text-ink font-medium"><Vnd :value="row.vnd" /></span>
               </div>
               <div class="h-1.5 rounded-full bg-line overflow-hidden">
                 <div
@@ -138,18 +148,22 @@ async function handleRemove() {
 
         <section v-if="rows.length > 0" class="flex flex-col gap-2">
           <h2 class="text-sm font-semibold text-muted px-1">Траты из этой шкалы</h2>
-          <div class="glass rounded-3xl divide-y" style="border-color: var(--line)">
-            <div v-for="row in rows" :key="row.chunk.expenseId + row.chunk.vnd">
-              <ExpenseRow
-                :expense="{ ...row.expense, vnd: row.chunk.vnd }"
-                :category="categoryById.get(row.expense.categoryId)"
-                :rub="row.chunk.rub"
-                with-date
-                @open="editingExpense = row.expense"
-              />
-              <p v-if="!row.whole" class="px-4 pb-2 -mt-1 text-[11px] text-muted">
-                часть траты на {{ formatVnd(row.expense.vnd) }} — остальное из соседней шкалы
-              </p>
+          <div class="glass rounded-3xl overflow-hidden">
+            <div v-for="day in days" :key="day.date">
+              <DayHeader :date="day.date" :total="day.total" />
+              <div class="divide-y" style="border-color: var(--line)">
+                <div v-for="row in day.rows" :key="row.chunk.expenseId + row.chunk.vnd">
+                  <ExpenseRow
+                    :expense="{ ...row.expense, vnd: row.chunk.vnd }"
+                    :category="categoryById.get(row.expense.categoryId)"
+                    :rub="row.chunk.rub"
+                    @open="editingExpense = row.expense"
+                  />
+                  <p v-if="!row.whole" class="px-4 pb-2 -mt-1 text-[11px] text-muted">
+                    часть траты на <Vnd :value="row.expense.vnd" /> — остальное из соседней шкалы
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>

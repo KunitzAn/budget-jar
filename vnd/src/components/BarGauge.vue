@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Bar } from '../lib/fifo'
-import { formatDate, formatRate, formatRub, formatVnd } from '../lib/format'
+import { formatDate, formatRate, formatRub } from '../lib/format'
+import Vnd from './Vnd.vue'
 
 const props = defineProps<{
   bar: Bar
@@ -17,7 +18,7 @@ const width = () => (props.bar.percent > 0 ? Math.max(props.bar.percent, 2) : 0)
   <div class="flex flex-col gap-2">
     <div class="flex items-baseline justify-between gap-2">
       <span :class="large ? 'text-2xl font-semibold text-ink' : 'text-base font-medium text-ink'">
-        {{ formatVnd(bar.remainingVnd) }}
+        <Vnd :value="bar.remainingVnd" />
       </span>
       <span :class="large ? 'text-base text-muted' : 'text-sm text-muted'">
         {{ Math.round(bar.percent) }}%

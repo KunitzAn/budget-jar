@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Category, Expense } from '../lib/db'
-import { formatDate, formatRub, formatVnd } from '../lib/format'
+import { formatDate, formatRub } from '../lib/format'
+import Vnd from './Vnd.vue'
 import { iconComponent } from '../lib/icons'
 
 defineProps<{
@@ -33,7 +34,7 @@ const emit = defineEmits<{ open: [] }>()
     </span>
 
     <span class="shrink-0 flex flex-col items-end">
-      <span class="text-sm font-medium text-ink">{{ formatVnd(expense.vnd) }}</span>
+      <span class="text-sm font-medium text-ink"><Vnd :value="expense.vnd" /></span>
       <span class="text-xs text-muted">{{ formatRub(rub) }}</span>
     </span>
   </button>

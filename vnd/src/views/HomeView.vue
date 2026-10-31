@@ -6,10 +6,12 @@ import BarGauge from '../components/BarGauge.vue'
 import ExchangeSheet from '../components/ExchangeSheet.vue'
 import ExpenseRow from '../components/ExpenseRow.vue'
 import ExpenseSheet from '../components/ExpenseSheet.vue'
+import DayHeader from '../components/DayHeader.vue'
+import Vnd from '../components/Vnd.vue'
 import { alive, ensureDefaultCategory } from '../lib/data'
 import { db, type Expense } from '../lib/db'
-import { formatRub, formatVnd } from '../lib/format'
-import { fifoOf } from '../lib/stats'
+import { formatRub } from '../lib/format'
+import { fifoOf, groupByDay } from '../lib/stats'
 import { useLiveQuery } from '../lib/useLiveQuery'
 
 const router = useRouter()
@@ -30,9 +32,13 @@ const openBars = computed(() => fifo.value.bars.filter((b) => b.remainingVnd > 0
 const spentBars = computed(() => fifo.value.bars.filter((b) => b.remainingVnd <= 0).reverse())
 
 const recent = computed(() =>
-  [...expenses.value]
-    .sort((a, b) => (a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date)))
-    .slice(0, 12),
+  groupByDay(
+    [...expenses.value]
+      .sort((a, b) => (a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date)))
+      .slice(0, 12),
+    (e) => e.date,
+    (e) => e.vnd,
+  ),
 )
 
 const categoryById = computed(() => new Map(categories.value.map((c) => [c.id, c])))
@@ -58,7 +64,7 @@ function closeExpense() {
       <header class="flex flex-col gap-1">
         <span class="text-xs text-muted">На руках</span>
         <div class="flex items-baseline gap-3">
-          <span class="text-3xl font-bold text-ink">{{ formatVnd(fifo.remainingVnd) }}</span>
+          <span class="text-3xl font-bold text-ink"><Vnd :value="fifo.remainingVnd" /></span>
           <span class="text-base text-muted">≈ {{ formatRub(fifo.remainingRub) }}</span>
         </div>
       </header>
@@ -70,7 +76,7 @@ function closeExpense() {
       >
         <TriangleAlert :size="18" class="shrink-0 mt-0.5" />
         <span>
-          Трат на {{ formatVnd(fifo.overdraftVnd) }} больше, чем переведено. Эта часть посчитана по
+          Трат на <Vnd :value="fifo.overdraftVnd" /> больше, чем переведено. Эта часть посчитана по
           последнему курсу — добавьте недостающий перевод.
         </span>
       </div>
@@ -123,16 +129,20 @@ function closeExpense() {
 
       <section v-if="recent.length > 0" class="flex flex-col gap-2">
         <h2 class="text-sm font-semibold text-muted px-1">Последние траты</h2>
-        <div class="glass rounded-3xl divide-y" style="border-color: var(--line)">
-          <ExpenseRow
-            v-for="e in recent"
-            :key="e.id"
-            :expense="e"
-            :category="categoryById.get(e.categoryId)"
-            :rub="fifo.rubByExpense.get(e.id) ?? 0"
-            with-date
-            @open="openExpense(e)"
-          />
+        <div class="glass rounded-3xl overflow-hidden">
+          <div v-for="day in recent" :key="day.date">
+            <DayHeader :date="day.date" :total="day.total" />
+            <div class="divide-y" style="border-color: var(--line)">
+              <ExpenseRow
+                v-for="e in day.rows"
+                :key="e.id"
+                :expense="e"
+                :category="categoryById.get(e.categoryId)"
+                :rub="fifo.rubByExpense.get(e.id) ?? 0"
+                @open="openExpense(e)"
+              />
+            </div>
+          </div>
         </div>
       </section>
 

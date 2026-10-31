@@ -4,6 +4,20 @@ export function formatVnd(value: number): string {
   return `${nf.format(Math.round(value))} ₫`
 }
 
+/**
+ * Делит сумму на значащую часть и хвост из трёх нулей: в донгах они есть
+ * почти всегда и только мешают разглядеть число. Хвост рисуется бледным —
+ * см. компонент Vnd.
+ */
+export function splitVnd(value: number): { head: string; tail: string } {
+  const text = nf.format(Math.round(value))
+  const match = /^(.*)([\s ]000)$/.exec(text)
+  return match ? { head: match[1]!, tail: match[2]! } : { head: text, tail: '' }
+}
+
+/** Сколько тысяч донгов — в этом виде суммы и вводятся. */
+export const VND_UNIT = 1000
+
 export function formatRub(value: number): string {
   return `${nf.format(Math.round(value))} ₽`
 }
@@ -27,6 +41,15 @@ function parseLocalDate(date: string): Date {
 export function formatDate(date: string, withYear = false): string {
   const parsed = parseLocalDate(date)
   return (withYear ? dateFmtFull : dateFmt).format(parsed)
+}
+
+/** «Сегодня»/«Вчера» вместо даты — так список дней читается быстрее. */
+export function todayLabel(date: string): string | null {
+  const now = new Date()
+  const diff = Math.round((now.setHours(0, 0, 0, 0) - parseLocalDate(date).getTime()) / 86_400_000)
+  if (diff === 0) return 'Сегодня'
+  if (diff === 1) return 'Вчера'
+  return null
 }
 
 export function formatDateRange(from: string, to: string): string {
