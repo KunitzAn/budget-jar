@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { addExpense, updateExpense } from '../lib/data'
+import { Plus } from '@lucide/vue'
+import { computed, nextTick, ref } from 'vue'
+import { addCategory, addExpense, updateExpense } from '../lib/data'
 import type { Category, Expense } from '../lib/db'
 import { today } from '../lib/db'
 import { computeFifo } from '../lib/fifo'
 import { formatRub } from '../lib/format'
-import { iconComponent } from '../lib/icons'
+import { ICON_NAMES, iconComponent } from '../lib/icons'
 import type { Exchange } from '../lib/db'
+import CategoryForm from './CategoryForm.vue'
 import SheetModal from './SheetModal.vue'
 import Vnd from './Vnd.vue'
 import VndField from './VndField.vue'
@@ -27,6 +29,26 @@ const comment = ref(props.expense?.comment ?? '')
 // Статья обязательна: по умолчанию та же, что в прошлый раз, иначе первая
 const categoryId = ref(props.expense?.categoryId ?? props.categories[0]?.id ?? '')
 const saving = ref(false)
+
+/** Черновик новой статьи прямо здесь — null, когда форма свёрнута. */
+const newCategory = ref<{ name: string; icon: string } | null>(null)
+
+const newCategoryBox = ref<HTMLElement | null>(null)
+
+async function startNewCategory() {
+  newCategory.value = { name: '', icon: ICON_NAMES[0]! }
+  // форма разворачивается ниже сетки статей — подводим её к глазам
+  await nextTick()
+  newCategoryBox.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+}
+
+async function saveNewCategory() {
+  const draft = newCategory.value
+  if (!draft?.name.trim()) return
+  const created = await addCategory(draft.name, draft.icon)
+  categoryId.value = created.id
+  newCategory.value = null
+}
 
 const canSave = computed(() => !!vnd.value && vnd.value > 0 && !!categoryId.value)
 
@@ -114,6 +136,40 @@ async function save() {
         >
           <component :is="iconComponent(c.icon)" :size="20" :style="{ color: 'var(--accent)' }" />
           <span class="text-[10px] leading-tight text-center text-ink line-clamp-2">{{ c.name }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="flex flex-col items-center gap-1 rounded-2xl py-2.5 px-1 border border-dashed text-muted"
+          :style="{ borderColor: 'var(--line)' }"
+          @click="startNewCategory"
+        >
+          <Plus :size="20" />
+          <span class="text-[10px] leading-tight text-center">Новая</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Статью можно завести на ходу: уходить в настройки посреди записи
+         траты — верный способ её не записать. -->
+    <div v-if="newCategory" ref="newCategoryBox" class="flex flex-col gap-3 rounded-2xl border p-3" :style="{ borderColor: 'var(--line)' }">
+      <CategoryForm v-model:name="newCategory.name" v-model:icon="newCategory.icon" />
+      <div class="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          class="rounded-2xl py-2.5 text-sm font-medium border"
+          :style="{ borderColor: 'var(--line)', color: 'var(--muted)' }"
+          @click="newCategory = null"
+        >
+          Отмена
+        </button>
+        <button
+          type="button"
+          :disabled="!newCategory.name.trim()"
+          class="rounded-2xl py-2.5 text-sm font-medium text-white bg-accent disabled:opacity-40"
+          @click="saveNewCategory"
+        >
+          Добавить
         </button>
       </div>
     </div>
