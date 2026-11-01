@@ -109,7 +109,7 @@ const days = computed(() =>
         : b.expense.date.localeCompare(a.expense.date),
     ),
     (r) => r.expense.date,
-    (r) => r.vnd,
+    (r) => ({ vnd: r.vnd, rub: r.rub }),
   ),
 )
 
@@ -250,8 +250,8 @@ const PRESETS: { value: RangePreset; label: string }[] = [
       <section v-if="days.length > 0" class="flex flex-col gap-2">
         <h2 class="text-sm font-semibold text-muted px-1">Траты</h2>
         <div class="glass rounded-3xl overflow-hidden">
-          <div v-for="day in days" :key="day.date">
-            <DayHeader :date="day.date" :total="day.total" />
+          <div v-for="day in days" :key="day.date" class="mt-2 first:mt-0">
+            <DayHeader :date="day.date" :vnd="day.vnd" :rub="day.rub" />
             <div class="rows">
               <ExpenseRow
                 v-for="row in day.rows"

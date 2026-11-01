@@ -49,7 +49,9 @@ export function inRange(date: string, range: Range): boolean {
 
 export interface DayGroup<T> {
   date: string
-  total: number
+  vnd: number
+  /** Итог дня в рублях — по курсу тех переводов, из которых ушли эти траты. */
+  rub: number
   rows: T[]
 }
 
@@ -60,18 +62,20 @@ export interface DayGroup<T> {
 export function groupByDay<T>(
   rows: T[],
   dateOf: (row: T) => string,
-  amountOf: (row: T) => number,
+  amountOf: (row: T) => { vnd: number; rub: number },
 ): DayGroup<T>[] {
   const groups: DayGroup<T>[] = []
   for (const row of rows) {
     const date = dateOf(row)
     let group = groups[groups.length - 1]
     if (!group || group.date !== date) {
-      group = { date, total: 0, rows: [] }
+      group = { date, vnd: 0, rub: 0, rows: [] }
       groups.push(group)
     }
+    const amount = amountOf(row)
     group.rows.push(row)
-    group.total += amountOf(row)
+    group.vnd += amount.vnd
+    group.rub += amount.rub
   }
   return groups
 }

@@ -51,7 +51,7 @@ const days = computed(() =>
   groupByDay(
     rows.value,
     (r) => r.expense.date,
-    (r) => r.chunk.vnd,
+    (r) => ({ vnd: r.chunk.vnd, rub: r.chunk.rub }),
   ),
 )
 
@@ -149,8 +149,8 @@ async function handleRemove() {
         <section v-if="rows.length > 0" class="flex flex-col gap-2">
           <h2 class="text-sm font-semibold text-muted px-1">Траты из этой шкалы</h2>
           <div class="glass rounded-3xl overflow-hidden">
-            <div v-for="day in days" :key="day.date">
-              <DayHeader :date="day.date" :total="day.total" />
+            <div v-for="day in days" :key="day.date" class="mt-2 first:mt-0">
+              <DayHeader :date="day.date" :vnd="day.vnd" :rub="day.rub" />
               <div class="rows">
                 <div v-for="row in day.rows" :key="row.chunk.expenseId + row.chunk.vnd">
                   <ExpenseRow

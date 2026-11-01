@@ -37,7 +37,7 @@ const recent = computed(() =>
       .sort((a, b) => (a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date)))
       .slice(0, 12),
     (e) => e.date,
-    (e) => e.vnd,
+    (e) => ({ vnd: e.vnd, rub: fifo.value.rubByExpense.get(e.id) ?? 0 }),
   ),
 )
 
@@ -130,8 +130,8 @@ function closeExpense() {
       <section v-if="recent.length > 0" class="flex flex-col gap-2">
         <h2 class="text-sm font-semibold text-muted px-1">Последние траты</h2>
         <div class="glass rounded-3xl overflow-hidden">
-          <div v-for="day in recent" :key="day.date">
-            <DayHeader :date="day.date" :total="day.total" />
+          <div v-for="day in recent" :key="day.date" class="mt-2 first:mt-0">
+            <DayHeader :date="day.date" :vnd="day.vnd" :rub="day.rub" />
             <div class="rows">
               <ExpenseRow
                 v-for="e in day.rows"
