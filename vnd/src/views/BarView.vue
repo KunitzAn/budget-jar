@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ChevronLeft, Pencil, Trash2 } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { ChevronLeft, Pencil } from '@lucide/vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BarGauge from '../components/BarGauge.vue'
 import ExchangeSheet from '../components/ExchangeSheet.vue'
@@ -8,9 +8,9 @@ import ExpenseRow from '../components/ExpenseRow.vue'
 import ExpenseSheet from '../components/ExpenseSheet.vue'
 import DayHeader from '../components/DayHeader.vue'
 import Vnd from '../components/Vnd.vue'
-import { alive, removeExchange } from '../lib/data'
+import { alive, removeExpense } from '../lib/data'
 import { db, type Expense } from '../lib/db'
-import { formatRub } from '../lib/format'
+import { formatRub, formatVnd } from '../lib/format'
 import { fifoOf, groupByDay } from '../lib/stats'
 import { iconComponent } from '../lib/icons'
 import { useLiveQuery } from '../lib/useLiveQuery'
@@ -76,14 +76,18 @@ const totals = computed(() => {
 })
 
 const editingExpense = ref<Expense | null>(null)
+
+/** Здесь видно только кусок траты — удаляется она целиком, об этом и спросим. */
+async function askRemoveExpense(expense: Expense) {
+  if (!confirm(`Удалить трату на ${formatVnd(expense.vnd)} целиком?`)) return
+  await removeExpense(expense.id)
+}
 const showExchange = ref(false)
 
-async function handleRemove() {
-  if (!exchange.value) return
-  if (!confirm('Удалить этот перевод? Траты останутся, но пересчитаются по оставшимся переводам.')) return
-  await removeExchange(exchange.value.id)
-  void router.replace('/')
-}
+// Перевод могли удалить прямо из его формы — тогда смотреть тут уже не на что.
+watch(exchange, (now, before) => {
+  if (before && !now) void router.replace('/')
+})
 </script>
 
 <template>
@@ -94,14 +98,9 @@ async function handleRemove() {
           <ChevronLeft :size="24" />
         </button>
         <h1 class="text-lg font-semibold text-ink">Шкала</h1>
-        <div class="ml-auto flex items-center gap-1">
-          <button type="button" class="p-2 text-muted" aria-label="Изменить перевод" @click="showExchange = true">
-            <Pencil :size="18" />
-          </button>
-          <button type="button" class="p-2" :style="{ color: 'var(--spend)' }" aria-label="Удалить перевод" @click="handleRemove">
-            <Trash2 :size="18" />
-          </button>
-        </div>
+        <button type="button" class="ml-auto p-2 text-muted" aria-label="Изменить перевод" @click="showExchange = true">
+          <Pencil :size="18" />
+        </button>
       </header>
 
       <template v-if="bar">
@@ -158,6 +157,7 @@ async function handleRemove() {
                     :category="categoryById.get(row.expense.categoryId)"
                     :rub="row.chunk.rub"
                     @open="editingExpense = row.expense"
+                    @remove="askRemoveExpense(row.expense)"
                   />
                   <p v-if="!row.whole" class="px-4 pb-2 -mt-1 text-[11px] text-muted">
                     часть траты на <Vnd :value="row.expense.vnd" /> — остальное из соседней шкалы

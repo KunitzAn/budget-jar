@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { addExchange, updateExchange } from '../lib/data'
+import { addExchange, removeExchange, updateExchange } from '../lib/data'
 import type { Exchange } from '../lib/db'
 import { today } from '../lib/db'
-import { formatRate } from '../lib/format'
+import { formatRate, formatVnd } from '../lib/format'
 import SheetModal from './SheetModal.vue'
 import Vnd from './Vnd.vue'
 import VndField from './VndField.vue'
@@ -30,6 +30,19 @@ async function save() {
     } else {
       await addExchange({ rub: rub.value!, vnd: vnd.value!, date: date.value })
     }
+    emit('close')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function remove() {
+  if (!props.exchange || saving.value) return
+  const message = `Удалить перевод на ${formatVnd(props.exchange.vnd)}? Траты останутся, но пересчитаются по оставшимся переводам.`
+  if (!confirm(message)) return
+  saving.value = true
+  try {
+    await removeExchange(props.exchange.id)
     emit('close')
   } finally {
     saving.value = false
@@ -66,6 +79,17 @@ async function save() {
       @click="save"
     >
       {{ saving ? 'Сохраняю…' : 'Сохранить' }}
+    </button>
+
+    <button
+      v-if="exchange"
+      type="button"
+      :disabled="saving"
+      class="w-full rounded-2xl py-2.5 text-sm font-medium border disabled:opacity-40"
+      :style="{ borderColor: 'var(--line)', color: 'var(--spend)' }"
+      @click="remove"
+    >
+      Удалить перевод
     </button>
   </SheetModal>
 </template>

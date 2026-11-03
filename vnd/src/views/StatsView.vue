@@ -3,9 +3,9 @@ import { computed, ref } from 'vue'
 import ExpenseRow from '../components/ExpenseRow.vue'
 import ExpenseSheet from '../components/ExpenseSheet.vue'
 import DayHeader from '../components/DayHeader.vue'
-import { alive } from '../lib/data'
+import { alive, removeExpense } from '../lib/data'
 import { db } from '../lib/db'
-import { formatDate, formatRub } from '../lib/format'
+import { formatDate, formatRub, formatVnd } from '../lib/format'
 import Vnd from '../components/Vnd.vue'
 import { iconComponent } from '../lib/icons'
 import { fifoOf, groupByDay, inRange, presetRange, type Range, type RangePreset } from '../lib/stats'
@@ -114,6 +114,11 @@ const days = computed(() =>
 )
 
 const editing = ref<Expense | null>(null)
+
+async function askRemove(expense: Expense) {
+  if (!confirm(`Удалить трату на ${formatVnd(expense.vnd)}?`)) return
+  await removeExpense(expense.id)
+}
 
 const PRESETS: { value: RangePreset; label: string }[] = [
   { value: 'today', label: 'День' },
@@ -260,6 +265,7 @@ const PRESETS: { value: RangePreset; label: string }[] = [
                 :category="categoryById.get(row.expense.categoryId)"
                 :rub="row.rub"
                 @open="editing = row.expense"
+                @remove="askRemove(row.expense)"
               />
             </div>
           </div>

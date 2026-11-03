@@ -8,9 +8,9 @@ import ExpenseRow from '../components/ExpenseRow.vue'
 import ExpenseSheet from '../components/ExpenseSheet.vue'
 import DayHeader from '../components/DayHeader.vue'
 import Vnd from '../components/Vnd.vue'
-import { alive, ensureDefaultCategory } from '../lib/data'
+import { alive, ensureDefaultCategory, removeExpense } from '../lib/data'
 import { db, type Expense } from '../lib/db'
-import { formatRub } from '../lib/format'
+import { formatRub, formatVnd } from '../lib/format'
 import { fifoOf, groupByDay } from '../lib/stats'
 import { useLiveQuery } from '../lib/useLiveQuery'
 
@@ -55,6 +55,11 @@ function openExpense(expense: Expense | null) {
 function closeExpense() {
   showExpense.value = false
   editing.value = null
+}
+
+async function askRemove(expense: Expense) {
+  if (!confirm(`Удалить трату на ${formatVnd(expense.vnd)}?`)) return
+  await removeExpense(expense.id)
 }
 </script>
 
@@ -140,6 +145,7 @@ function closeExpense() {
                 :category="categoryById.get(e.categoryId)"
                 :rub="fifo.rubByExpense.get(e.id) ?? 0"
                 @open="openExpense(e)"
+                @remove="askRemove(e)"
               />
             </div>
           </div>

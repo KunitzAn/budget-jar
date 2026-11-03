@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Plus } from '@lucide/vue'
 import { computed, nextTick, ref } from 'vue'
-import { addCategory, addExpense, updateExpense } from '../lib/data'
+import { addCategory, addExpense, removeExpense, updateExpense } from '../lib/data'
 import type { Category, Expense } from '../lib/db'
 import { today } from '../lib/db'
 import { computeFifo } from '../lib/fifo'
-import { formatRub } from '../lib/format'
+import { formatRub, formatVnd } from '../lib/format'
 import { ICON_NAMES, iconComponent } from '../lib/icons'
 import type { Exchange } from '../lib/db'
 import CategoryForm from './CategoryForm.vue'
@@ -105,6 +105,18 @@ async function save() {
     saving.value = false
   }
 }
+
+async function remove() {
+  if (!props.expense || saving.value) return
+  if (!confirm(`Удалить трату на ${formatVnd(props.expense.vnd)}?`)) return
+  saving.value = true
+  try {
+    await removeExpense(props.expense.id)
+    emit('close')
+  } finally {
+    saving.value = false
+  }
+}
 </script>
 
 <template>
@@ -191,6 +203,17 @@ async function save() {
       @click="save"
     >
       {{ saving ? 'Сохраняю…' : 'Сохранить' }}
+    </button>
+
+    <button
+      v-if="expense"
+      type="button"
+      :disabled="saving"
+      class="w-full rounded-2xl py-2.5 text-sm font-medium border disabled:opacity-40"
+      :style="{ borderColor: 'var(--line)', color: 'var(--spend)' }"
+      @click="remove"
+    >
+      Удалить трату
     </button>
   </SheetModal>
 </template>
