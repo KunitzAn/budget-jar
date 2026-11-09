@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRightLeft, Plus, TriangleAlert } from '@lucide/vue'
+import { ArrowRightLeft, ChevronDown, Plus, TriangleAlert } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BarGauge from '../components/BarGauge.vue'
@@ -10,7 +10,7 @@ import DayHeader from '../components/DayHeader.vue'
 import Vnd from '../components/Vnd.vue'
 import { alive, ensureDefaultCategory, removeExpense } from '../lib/data'
 import { db, type Expense } from '../lib/db'
-import { formatRub, formatVnd } from '../lib/format'
+import { formatRub, formatVnd, plural } from '../lib/format'
 import { fifoOf, groupByDay } from '../lib/stats'
 import { useLiveQuery } from '../lib/useLiveQuery'
 
@@ -31,11 +31,26 @@ const fifo = computed(() => fifoOf(exchanges.value, expenses.value))
 const openBars = computed(() => fifo.value.bars.filter((b) => b.remainingVnd > 0))
 const spentBars = computed(() => fifo.value.bars.filter((b) => b.remainingVnd <= 0).reverse())
 
+/** Переводы, до которых очередь ещё не дошла: лежат сложенными. */
+const queuedBars = computed(() => openBars.value.slice(1))
+const queuedVnd = computed(() => queuedBars.value.reduce((sum, b) => sum + b.remainingVnd, 0))
+const queuedOpen = ref(false)
+
+const sorted = computed(() =>
+  [...expenses.value].sort((a, b) =>
+    a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date),
+  ),
+)
+
+// Список растёт по кнопке: на главной нужны последние траты, но иногда надо
+// долистать и до старых — отдельный экран ради этого заводить незачем.
+const PAGE = 20
+const limit = ref(PAGE)
+const hasMore = computed(() => sorted.value.length > limit.value)
+
 const recent = computed(() =>
   groupByDay(
-    [...expenses.value]
-      .sort((a, b) => (a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date)))
-      .slice(0, 12),
+    sorted.value.slice(0, limit.value),
     (e) => e.date,
     (e) => ({ vnd: e.vnd, rub: fifo.value.rubByExpense.get(e.id) ?? 0 }),
   ),
@@ -96,15 +111,34 @@ async function askRemove(expense: Expense) {
           <BarGauge :bar="openBars[0]!" large />
         </button>
 
-        <button
-          v-for="bar in openBars.slice(1)"
-          :key="bar.id"
-          type="button"
-          class="glass rounded-2xl p-3.5 text-left"
-          @click="router.push(`/bar/${bar.id}`)"
-        >
-          <BarGauge :bar="bar" />
-        </button>
+        <template v-if="queuedBars.length > 0">
+          <button
+            type="button"
+            class="glass rounded-2xl px-4 py-3 flex items-center gap-2 text-left"
+            @click="queuedOpen = !queuedOpen"
+          >
+            <ChevronDown
+              :size="18"
+              class="text-muted transition-transform"
+              :class="queuedOpen ? 'rotate-180' : ''"
+            />
+            <span class="text-sm text-ink">
+              Ещё {{ queuedBars.length }}
+              {{ plural(queuedBars.length, 'перевод', 'перевода', 'переводов') }}
+            </span>
+            <span class="ml-auto text-sm text-muted"><Vnd :value="queuedVnd" /></span>
+          </button>
+
+          <button
+            v-for="bar in queuedOpen ? queuedBars : []"
+            :key="bar.id"
+            type="button"
+            class="glass rounded-2xl p-3.5 text-left"
+            @click="router.push(`/bar/${bar.id}`)"
+          >
+            <BarGauge :bar="bar" />
+          </button>
+        </template>
       </section>
 
       <section v-else class="glass rounded-3xl p-5 text-center flex flex-col gap-3">
@@ -149,6 +183,16 @@ async function askRemove(expense: Expense) {
               />
             </div>
           </div>
+
+          <button
+            v-if="hasMore"
+            type="button"
+            class="w-full py-3 text-sm font-medium border-t"
+            :style="{ color: 'var(--accent)', borderColor: 'color-mix(in srgb, var(--line) 75%, transparent)' }"
+            @click="limit += PAGE"
+          >
+            Показать ещё
+          </button>
         </div>
       </section>
 

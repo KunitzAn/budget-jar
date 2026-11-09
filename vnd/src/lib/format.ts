@@ -59,6 +59,15 @@ export function daysSince(date: string): number {
   return Math.max(0, Math.round((now - start) / 86_400_000))
 }
 
+/** Русское склонение по числу: 1 перевод, 2 перевода, 5 переводов. */
+export function plural(n: number, one: string, few: string, many: string): string {
+  const last = n % 10
+  const teen = n % 100 >= 11 && n % 100 <= 14
+  if (!teen && last === 1) return one
+  if (!teen && last >= 2 && last <= 4) return few
+  return many
+}
+
 /**
  * Который день идёт с обмена: день самого обмена — первый. Порядковое
  * число короче, чем «прошло 8 дней», и влезает в строку рядом с суммой.
