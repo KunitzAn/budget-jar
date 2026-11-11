@@ -41,19 +41,6 @@ const selectedBar = computed(
   () => bars.value.find((b) => b.id === selectedBarId.value) ?? bars.value[0] ?? null,
 )
 
-/** Фильтр по статьям: пусто — показываем все. */
-const activeCategories = ref<Set<string>>(new Set())
-
-function toggleCategory(id: string) {
-  const next = new Set(activeCategories.value)
-  if (next.has(id)) next.delete(id)
-  else next.add(id)
-  activeCategories.value = next
-}
-
-const matchesCategory = (categoryId: string) =>
-  activeCategories.value.size === 0 || activeCategories.value.has(categoryId)
-
 /**
  * В режиме шкалы берём не траты целиком, а куски, ушедшие именно из неё:
  * трата могла прийтись на две шкалы, и иначе суммы разошлись бы с полосой.
@@ -66,14 +53,14 @@ const shown = computed(() => {
     return bar.chunks
       .map((chunk) => {
         const expense = byId.get(chunk.expenseId)
-        if (!expense || !matchesCategory(expense.categoryId)) return null
+        if (!expense) return null
         return { expense, vnd: chunk.vnd, rub: chunk.rub }
       })
       .filter((r): r is NonNullable<typeof r> => r !== null)
   }
 
   return expenses.value
-    .filter((e) => inRange(e.date, range.value) && matchesCategory(e.categoryId))
+    .filter((e) => inRange(e.date, range.value))
     .map((expense) => ({ expense, vnd: expense.vnd, rub: fifo.value.rubByExpense.get(expense.id) ?? 0 }))
 })
 
@@ -295,26 +282,8 @@ const PRESETS: { value: RangePreset; label: string }[] = [
           <p v-else class="text-sm text-muted">Переводов пока нет.</p>
         </template>
 
-        <div v-if="categories.length > 0" class="flex flex-wrap gap-1.5">
-          <button
-            v-for="c in categories"
-            :key="c.id"
-            type="button"
-            class="rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 border transition-colors"
-            :style="
-              activeCategories.has(c.id)
-                ? { borderColor: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--ink)' }
-                : { borderColor: 'var(--line)', color: 'var(--muted)' }
-            "
-            @click="toggleCategory(c.id)"
-          >
-            <component :is="iconComponent(c.icon)" :size="13" />
-            {{ c.name }}
-          </button>
-        </div>
-
         <section class="glass rounded-3xl p-4 flex flex-col gap-1">
-          <span class="text-xs text-muted">Потрачено{{ activeCategories.size > 0 ? ' (с фильтром)' : '' }}</span>
+          <span class="text-xs text-muted">Потрачено</span>
           <div class="flex items-baseline gap-3">
             <span class="text-2xl font-bold" :style="{ color: 'var(--spend)' }"><Vnd :value="totals.vnd" /></span>
             <span class="text-base text-muted">{{ formatRub(totals.rub) }}</span>
