@@ -1,20 +1,29 @@
 <script setup lang="ts">
 import { Trash2 } from '@lucide/vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { Category, Expense } from '../lib/db'
 import { formatDate, formatRub } from '../lib/format'
 import Vnd from './Vnd.vue'
 import { iconComponent } from '../lib/icons'
 
-defineProps<{
+const props = defineProps<{
   expense: Expense
   category: Category | undefined
   rub: number
   /** Дата нужна в общем списке и не нужна внутри одного дня. */
   withDate?: boolean
+  /** Внутри одной статьи её имя в каждой строке только мешает. */
+  hideCategory?: boolean
 }>()
 
 const emit = defineEmits<{ open: []; remove: [] }>()
+
+const categoryName = computed(() => props.category?.name ?? 'Удалённая статья')
+// Если статья и так известна, наверх поднимаем заметку — она здесь главное.
+const title = computed(() =>
+  props.hideCategory && props.expense.comment ? props.expense.comment : categoryName.value,
+)
+const note = computed(() => (props.expense.comment === title.value ? '' : props.expense.comment))
 
 /**
  * Смахивание влево открывает «Удалить». Жест разбираем сами, а не берём
@@ -116,11 +125,11 @@ function handleRemove() {
         </span>
 
         <span class="min-w-0 flex-1 flex flex-col">
-          <span class="text-sm text-ink truncate">{{ category?.name ?? 'Удалённая статья' }}</span>
+          <span class="text-sm text-ink truncate">{{ title }}</span>
           <span class="text-xs text-muted truncate">
             <template v-if="withDate">{{ formatDate(expense.date) }}</template>
-            <template v-if="withDate && expense.comment"> · </template>
-            <template v-if="expense.comment">{{ expense.comment }}</template>
+            <template v-if="withDate && note"> · </template>
+            <template v-if="note">{{ note }}</template>
           </span>
         </span>
 
